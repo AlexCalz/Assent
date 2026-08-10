@@ -2,6 +2,20 @@
 
 Running record of key calls and *why*. Newest at top.
 
+## D7 — Build the deterministic core first, as an erasable-TS kernel
+**Decision:** The first product code is the moat and nothing else: the `Change` primitive
++ the pure `policy()` decision function + the action catalog, with the pipeline steps that
+must be deterministic (normalize, envelope, owner-gate, decide). Diagnosis (LLM, upstream)
+and enforcement (gateway, downstream per D5) are deliberately *out* of the kernel. Written
+in TypeScript that runs directly under Node's type-stripping (no build step, no runtime
+deps), tested with the built-in runner — 29 tests, each named for the invariant it
+defends.
+**Why:** D2/D6 call the policy engine the moat precisely because it must be "auditable,
+testable, versioned" — that is a claim you can only make about code. Encoding the D6
+invariant as a pure function with a test that proves "high confidence never opens the gate"
+(the anti-Dropzone case) turns the thesis from a doc into something executable. Keeping the
+LLM and the gateway outside the kernel keeps the trust decision small and deterministic.
+
 ## D6 — Policy engine boundary: "LLM may only tighten the gate"
 **Decision:** Invariant — the LLM may produce any input that only makes the gate *more*
 conservative; anything that could *relax* it (blast radius, reversibility, environment,

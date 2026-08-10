@@ -21,5 +21,28 @@ assent (low-risk, auto) or a human owner's assent (everything else).
 | [docs/roadmap.md](docs/roadmap.md) | Plan of action (crawl → walk → run) + the "next to explore" queue |
 | [docs/decisions.md](docs/decisions.md) | Running log of key decisions and *why* |
 
-Status: **concept / validated brainstorm.** No product code yet. This is the thinking,
-captured.
+## The kernel
+
+The docs designate one thing as the moat: the deterministic `Change` primitive plus the
+pure `policy()` trust decision — *"must be code: auditable, testable, versioned"*
+(D2, D6). That core now exists as a small, zero-dependency TypeScript reference kernel.
+
+| File | Role |
+|---|---|
+| [src/types.ts](src/types.ts) | The `Change` primitive + envelope types; the type boundary *is* the trust boundary |
+| [src/catalog.ts](src/catalog.ts) | Action catalog — pre-classified reversibility/effect; the safety boundary |
+| [src/policy.ts](src/policy.ts) | The pure `policy()` function — the trust decision, encoding the D6 invariant |
+| [src/engine.ts](src/engine.ts) | Wires proposal → normalize → envelope → owner → policy, with independent-audit divergence |
+| [test/](test) | 29 tests, each defending one documented invariant (incl. the anti-"99%-confidence" case) |
+
+```
+npm test        # runs the suite (Node ≥22.6, TypeScript run directly, no build step)
+npm run typecheck
+```
+
+Diagnosis (LLM) sits upstream and enforcement (an existing gateway, per D5) sits
+downstream. Only the part that *must* be deterministic — computing the decision — lives
+here.
+
+Status: **concept + reference kernel.** The strategy is captured in `docs/`; the trust
+decision is now executable and tested.

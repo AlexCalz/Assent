@@ -27,7 +27,9 @@ The wedge is a **customer-appetite bet, not a technical one.**
 - **Goal:** prove the approval card + the Change primitive.
 
 ## Phase 3 — Bounded autonomy (earn the dial)
-- [ ] Policy engine: `(risk_envelope, owner) -> {auto | route | escalate}`.
+- [~] Policy engine: `(risk_envelope, owner) -> {auto | route | escalate}`. *Reference
+      kernel landed — pure `policy()` + action catalog + 29 invariant tests (see
+      [src/](../src), D7). Still needs the live graph + real gateway wiring.*
 - [ ] Ownership + context graph (see [graph-strategy.md](graph-strategy.md)),
       lazy/JIT population.
 - [ ] Independent **audit agent** as second opinion on the risk envelope; disagreement
@@ -39,8 +41,9 @@ The wedge is a **customer-appetite bet, not a technical one.**
 ## Next-to-explore queue
 Ideas to pull into a design session when we get there:
 
-- [ ] **Policy engine design** — how the risk envelope is computed; where the
-      deterministic / LLM boundary sits.
+- [x] **Policy engine design** — how the risk envelope is computed; where the
+      deterministic / LLM boundary sits. *Implemented as the reference kernel (D7); the
+      boundary is enforced in [src/policy.ts](../src/policy.ts).*
 - [ ] **Approval card design** — the hero component; make approval fast + complete.
 - [ ] **Demo narrative** — the single "wow" flow: an agent handling something no
       playbook anticipated.
