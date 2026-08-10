@@ -33,7 +33,8 @@ code: auditable, testable, versioned." No LLM calls, no third-party dependencies
 | [assent/catalog.py](assent/catalog.py) | The action catalog — the safety boundary (reversibility per action type) |
 | [assent/policy.py](assent/policy.py) | The deterministic `PolicyEngine`: `(risk_envelope, owner) -> {auto \| route \| escalate}` |
 | [assent/graph.py](assent/graph.py) | The ownership graph — "derive, don't demand" resolution (source ladder, confidence-scored edges, staleness decay) |
-| [assent/approval_card.py](assent/approval_card.py) | The approval card — renders a gated `Change` + its audit trail as the human decision surface |
+| [assent/audit.py](assent/audit.py) | The independent audit agent — a second-opinion confidence read; disagreement is a deterministic escalation |
+| [assent/approval_card.py](assent/approval_card.py) | The approval card — renders a gated `Change`, the second opinion, and the audit trail as the human decision surface |
 | [tests/](tests/) | Invariant tests — each pins a principle from the docs |
 | [examples/demo.py](examples/demo.py) | Four scenarios showing the three gates and *why* |
 | [examples/render_cards.py](examples/render_cards.py) | End-to-end slice: graph resolves owner → engine gates → card renders |
@@ -44,7 +45,7 @@ python examples/demo.py        # watch the engine gate four changes
 python examples/render_cards.py  # generate the approval-queue page (examples/approval_queue.html)
 ```
 
-Status: **concept validated; deterministic core + ownership graph + approval card
-prototyped.** The policy engine, the graph resolver, and the approval-card renderer are
-real, tested code. The remaining LLM-facing pieces (diagnosis, catalog normalization,
-tier-5 doc extraction, independent audit agent) are still design, not build.
+Status: **concept validated; the differentiated core is prototyped.** The policy engine,
+the ownership-graph resolver, the independent audit agent, and the approval-card renderer
+are all real, tested code (44 tests). The remaining pieces are the LLM-facing diagnosis
+layer and the live enforcement/integration substrate — design, not build.

@@ -2,6 +2,20 @@
 
 Running record of key calls and *why*. Newest at top.
 
+## D9 — Independent audit agent as a deterministic escalation trigger
+**Decision:** Add the audit agent (`assent/audit.py`): an `AuditAgent` interface plus a
+deterministic `RuleBasedAuditor` that derives its *own* confidence from measured facts,
+never reading the acting agent's number. The *decision* about a disagreement stays in
+the policy engine: `evaluate(change, audit=...)` escalates on dissent or on
+acting-vs-audit divergence beyond a threshold, and otherwise takes the more conservative
+of the two confidences. The audit signal can only ever tighten the gate.
+**Why:** objectives.md makes the second opinion a first-class safety property, and
+policy-engine.md specifies divergence as a deterministic escalation. Keeping the auditor
+independent (its own read) is what makes it a real check rather than an echo of a
+poisonable number; keeping the *response* in the deterministic engine keeps the trust
+decision auditable. In the demo this immediately caught a prod tier-0 credential
+rotation the envelope alone would have routed, and escalated it.
+
 ## D8 — Build out to a full slice: graph resolver + approval card on the engine
 **Decision:** Extend the deterministic core with two pieces, in order: (1) the ownership
 graph resolver (`assent/graph.py`) — the source ladder, confidence-scored edges,

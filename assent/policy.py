@@ -20,10 +20,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List
+from typing import List, Optional, TYPE_CHECKING
 
 from assent.catalog import ActionCatalog, DEFAULT_CATALOG
 from assent.change import Change, Environment, Reversibility
+
+if TYPE_CHECKING:  # avoid runtime coupling; the engine only duck-types the opinion
+    from assent.audit import AuditOpinion
 
 
 class Decision(str, Enum):
@@ -66,6 +69,7 @@ class AutonomyPolicy:
     allow_auto_tier0: bool = False             # crown-jewel targets never auto
     min_owner_confidence: float = 0.75         # below => cannot silently route
     min_confidence_for_auto: float = 0.85      # confidence can only tighten, never open
+    max_audit_divergence: float = 0.25         # acting vs audit gap above this => escalate
 
 
 class PolicyEngine:
@@ -79,7 +83,9 @@ class PolicyEngine:
         self.catalog = catalog
         self.autonomy = autonomy
 
-    def evaluate(self, change: Change) -> PolicyResult:
+    def evaluate(
+        self, change: Change, audit: Optional["AuditOpinion"] = None
+    ) -> PolicyResult:
         env = change.risk_envelope
         action = change.action
         reasons: List[str] = []
@@ -95,6 +101,27 @@ class PolicyEngine:
         # --- Step 2: reads are autonomous. The real trust boundary is read vs write. ---
         if not action.is_write:
             return PolicyResult(Decision.AUTO, ["read-only action; reads are autonomous"])
+
+        # --- Independent audit: disagreement is itself an escalation trigger. ---
+        # Runs before the measured-envelope checks so a dissent or a wide acting/audit
+        # confidence gap escalates even a change the envelope would otherwise route. The
+        # audit read can only ever tighten (escalate / lower confidence), never open.
+        if audit is not None:
+            if audit.dissent:
+                return PolicyResult(
+                    Decision.ESCALATE,
+                    [f"independent audit dissents ({audit.rationale}); escalating"],
+                )
+            divergence = abs(env.confidence - audit.confidence)
+            if divergence > self.autonomy.max_audit_divergence:
+                return PolicyResult(
+                    Decision.ESCALATE,
+                    [
+                        f"acting confidence {env.confidence:.2f} and audit confidence "
+                        f"{audit.confidence:.2f} diverge by {divergence:.2f} > "
+                        f"{self.autonomy.max_audit_divergence:.2f}; disagreement escalates"
+                    ],
+                )
 
         # From here down we are gating a *write*. Decide whether the measured facts
         # permit AUTO. Any single failure closes the AUTO door; we then choose between
@@ -141,14 +168,20 @@ class PolicyEngine:
         # --- Downgrade pass: model-supplied signals may only TIGHTEN, never open. ---
         # At this point the measured envelope permits AUTO. Confidence and context can
         # still push us to a human, but nothing here could have opened a closed gate.
-        if env.confidence < self.autonomy.min_confidence_for_auto:
-            return self._gate(
-                change,
-                reasons=[
-                    f"confidence {env.confidence:.2f} below auto floor "
-                    f"{self.autonomy.min_confidence_for_auto:.2f}; confidence only tightens"
-                ],
+        # When an audit opinion is present we take the *more conservative* of the acting
+        # and audit confidences, so a wary auditor can only lower the effective number.
+        effective_confidence = env.confidence
+        if audit is not None:
+            effective_confidence = min(env.confidence, audit.confidence)
+        if effective_confidence < self.autonomy.min_confidence_for_auto:
+            floor = self.autonomy.min_confidence_for_auto
+            note = (
+                f"confidence {effective_confidence:.2f} below auto floor {floor:.2f}; "
+                "confidence only tightens"
             )
+            if audit is not None and audit.confidence < env.confidence:
+                note += f" (audit read {audit.confidence:.2f} is the more conservative)"
+            return self._gate(change, reasons=[note])
 
         if change.context_caution:
             return self._gate(

@@ -15,10 +15,14 @@ from __future__ import annotations
 
 import html
 from dataclasses import dataclass
-from typing import Iterable, Tuple
+from typing import Iterable, Optional, Tuple
 
+from assent.audit import AuditOpinion
 from assent.change import Change
 from assent.policy import Decision, PolicyResult
+
+# Kept in sync with AutonomyPolicy.max_audit_divergence; used only for the display label.
+_AUDIT_DIVERGENCE_LABEL_THRESHOLD = 0.25
 
 
 @dataclass(frozen=True)
@@ -69,7 +73,34 @@ def _field(label: str, value: str, *, mono: bool = False, tone: str = "") -> str
     )
 
 
-def render_card(change: Change, result: PolicyResult) -> str:
+def _audit_block(change: Change, audit: AuditOpinion) -> str:
+    """Render the independent second opinion: its confidence and whether it concurs,
+    diverges, or dissents from the acting agent."""
+    acting = change.risk_envelope.confidence
+    divergence = abs(acting - audit.confidence)
+    if audit.dissent:
+        stance, tone = "Dissent", "escalate"
+    elif divergence > _AUDIT_DIVERGENCE_LABEL_THRESHOLD:
+        stance, tone = "Diverges", "escalate"
+    else:
+        stance, tone = "Concurs", "auto"
+    rationale = _e(audit.rationale) if audit.rationale else "no risk factors flagged"
+    return f"""
+        <div class="block audit">
+          <div class="block-label">Independent audit · second opinion</div>
+          <div class="audit-row">
+            <span class="pill pill-{tone}">{stance}</span>
+            <span class="audit-conf">reads <strong>{round(audit.confidence * 100)}%</strong>
+              vs acting {round(acting * 100)}%</span>
+          </div>
+          <p class="block-body">{rationale}</p>
+        </div>
+    """
+
+
+def render_card(
+    change: Change, result: PolicyResult, audit: Optional[AuditOpinion] = None
+) -> str:
     verdict = _VERDICTS[result.decision]
     action = change.action
     env = change.risk_envelope
@@ -98,6 +129,7 @@ def render_card(change: Change, result: PolicyResult) -> str:
         else '<span class="tone-escalate">no rollback plan — autonomy withheld</span>'
     )
     reasoning = _e(change.reasoning) if change.reasoning else '<span class="muted">—</span>'
+    audit_block = _audit_block(change, audit) if audit is not None else ""
 
     return f"""
       <article class="card tone-{verdict.tone}">
@@ -133,6 +165,8 @@ def render_card(change: Change, result: PolicyResult) -> str:
           <div class="block-label">Rollback</div>
           <p class="block-body mono">{rollback}</p>
         </div>
+
+        {audit_block}
 
         <div class="block trail">
           <div class="block-label">Why the engine decided this</div>
@@ -293,6 +327,14 @@ body {
 .block-body { margin: 0; font-size: 14px; color: var(--ink-soft); }
 .block-body.mono { font-family: var(--mono); font-size: 13px; }
 
+.audit {
+  border: 1px solid var(--border); border-radius: 9px;
+  padding: 11px 14px; margin-bottom: 14px; background: var(--surface-2);
+}
+.audit-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.audit-conf { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.audit-conf strong { color: var(--ink); }
+
 .trail {
   background: var(--tone-bg);
   border: 1px solid var(--tone-line);
@@ -326,13 +368,17 @@ body {
 
 
 def render_page(
-    items: Iterable[Tuple[Change, PolicyResult]],
+    items: Iterable[Tuple],
     *,
     title: str = "Assent — approval queue",
     intro: str = "Every action an agent proposes, gated by the deterministic policy "
     "engine. Nothing acts without assent — earned (auto) or granted (a human's).",
 ) -> str:
-    cards = "\n".join(render_card(change, result) for change, result in items)
+    # Each item is (change, result) or (change, result, audit).
+    cards = "\n".join(
+        render_card(item[0], item[1], item[2] if len(item) > 2 else None)
+        for item in items
+    )
     return f"""<!doctype html>
 <html lang="en">
 <head>

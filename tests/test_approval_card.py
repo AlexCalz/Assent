@@ -84,6 +84,16 @@ def test_missing_rollback_is_surfaced_not_blank():
     assert "no rollback plan" in html
 
 
+def test_card_renders_audit_second_opinion_when_present():
+    from assent import AuditOpinion
+    engine = PolicyEngine()
+    change = _change()
+    result = engine.evaluate(change)
+    html = render_card(change, result, audit=AuditOpinion(0.4, "borderline signal"))
+    assert "Independent audit" in html
+    assert "borderline signal" in html
+
+
 def test_page_is_self_contained_and_themed():
     engine = PolicyEngine()
     items = [(_change(), engine.evaluate(_change()))]

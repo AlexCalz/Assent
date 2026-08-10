@@ -19,6 +19,7 @@ from assent.change import (
     Reversibility,
     RiskEnvelope,
 )
+from assent.audit import AuditAgent, AuditOpinion, RuleBasedAuditor
 from assent.catalog import ActionCatalog, ActionClass, DEFAULT_CATALOG
 from assent.graph import OwnershipClaim, OwnershipGraph, Source
 from assent.policy import Decision, PolicyEngine, PolicyResult
@@ -27,6 +28,8 @@ __all__ = [
     "Action",
     "ActionCatalog",
     "ActionClass",
+    "AuditAgent",
+    "AuditOpinion",
     "Change",
     "DEFAULT_CATALOG",
     "Decision",
@@ -38,6 +41,7 @@ __all__ = [
     "PolicyResult",
     "Reversibility",
     "RiskEnvelope",
+    "RuleBasedAuditor",
     "Source",
 ]
 

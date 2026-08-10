@@ -150,6 +150,14 @@ body {
 .block-body { margin: 0; font-size: 14px; color: var(--ink-soft); }
 .block-body.mono { font-family: var(--mono); font-size: 13px; }
 
+.audit {
+  border: 1px solid var(--border); border-radius: 9px;
+  padding: 11px 14px; margin-bottom: 14px; background: var(--surface-2);
+}
+.audit-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.audit-conf { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.audit-conf strong { color: var(--ink); }
+
 .trail {
   background: var(--tone-bg);
   border: 1px solid var(--tone-line);
@@ -224,6 +232,18 @@ body {
           <p class="block-body mono">Remove c2.evil.example from the egress blocklist.</p>
         </div>
 
+        
+        <div class="block audit">
+          <div class="block-label">Independent audit · second opinion</div>
+          <div class="audit-row">
+            <span class="pill pill-auto">Concurs</span>
+            <span class="audit-conf">reads <strong>92%</strong>
+              vs acting 96%</span>
+          </div>
+          <p class="block-body">no risk factors flagged</p>
+        </div>
+    
+
         <div class="block trail">
           <div class="block-label">Why the engine decided this</div>
           <ul class="reasons"><li>reversible + narrow + in-scope environment with a rollback plan and sufficient confidence; low risk envelope earns auto-execution</li></ul>
@@ -236,14 +256,14 @@ body {
       </article>
     
 
-      <article class="card tone-route">
+      <article class="card tone-escalate">
         <header class="card-head">
           <div class="verdict">
-            <span class="pill pill-route">Needs your approval</span>
+            <span class="pill pill-escalate">Escalated</span>
             <span class="badge badge-tier0">tier-0</span>
           </div>
           <h2 class="action-type">rotate_credential</h2>
-          <p class="stance">Routed to you as the authoritative owner of the affected stack.</p>
+          <p class="stance">No confident owner or a fail-safe tripped — broadened to a human decision.</p>
         </header>
 
         <div class="command">
@@ -270,13 +290,25 @@ body {
           <p class="block-body mono">Re-issue the prior key version from the secrets manager and re-point consumers.</p>
         </div>
 
+        
+        <div class="block audit">
+          <div class="block-label">Independent audit · second opinion</div>
+          <div class="audit-row">
+            <span class="pill pill-escalate">Dissent</span>
+            <span class="audit-conf">reads <strong>19%</strong>
+              vs acting 91%</span>
+          </div>
+          <p class="block-body">prod target; tier-0 system; recoverable action</p>
+        </div>
+    
+
         <div class="block trail">
           <div class="block-label">Why the engine decided this</div>
-          <ul class="reasons"><li>reversibility is &#x27;recoverable&#x27;; only reversible writes auto-execute</li><li>environment &#x27;prod&#x27; is outside the auto set</li><li>target is tier-0; tier-0 writes never auto-execute</li><li>routing to owner &#x27;team-payments&#x27; (confidence 0.90)</li></ul>
+          <ul class="reasons"><li>independent audit dissents (prod target; tier-0 system; recoverable action); escalating</li></ul>
         </div>
 
         <footer class="actions">
-          <button class="btn btn-primary tone-route">Approve &amp; execute</button>
+          <button class="btn btn-primary tone-escalate">Take ownership</button>
           <button class="btn btn-secondary">Deny</button>
         </footer>
       </article>
@@ -315,6 +347,18 @@ body {
           <div class="block-label">Rollback</div>
           <p class="block-body mono">Release laptop-4471 from EDR network isolation.</p>
         </div>
+
+        
+        <div class="block audit">
+          <div class="block-label">Independent audit · second opinion</div>
+          <div class="audit-row">
+            <span class="pill pill-auto">Concurs</span>
+            <span class="audit-conf">reads <strong>92%</strong>
+              vs acting 72%</span>
+          </div>
+          <p class="block-body">no risk factors flagged</p>
+        </div>
+    
 
         <div class="block trail">
           <div class="block-label">Why the engine decided this</div>
@@ -362,9 +406,21 @@ body {
           <p class="block-body mono"><span class="tone-escalate">no rollback plan — autonomy withheld</span></p>
         </div>
 
+        
+        <div class="block audit">
+          <div class="block-label">Independent audit · second opinion</div>
+          <div class="audit-row">
+            <span class="pill pill-escalate">Dissent</span>
+            <span class="audit-conf">reads <strong>9%</strong>
+              vs acting 99%</span>
+          </div>
+          <p class="block-body">irreversible action; no rollback plan</p>
+        </div>
+    
+
         <div class="block trail">
           <div class="block-label">Why the engine decided this</div>
-          <ul class="reasons"><li>no rollback plan; a write without undo never auto-executes</li><li>reversibility is &#x27;irreversible&#x27;; only reversible writes auto-execute</li><li>owner unknown or below routing-confidence floor; escalating rather than guessing an approver</li></ul>
+          <ul class="reasons"><li>independent audit dissents (irreversible action; no rollback plan); escalating</li></ul>
         </div>
 
         <footer class="actions">

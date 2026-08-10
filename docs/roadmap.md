@@ -27,12 +27,13 @@ The wedge is a **customer-appetite bet, not a technical one.**
 - **Goal:** prove the approval card + the Change primitive.
 
 ## Phase 3 — Bounded autonomy (earn the dial)
-- [ ] Policy engine: `(risk_envelope, owner) -> {auto | route | escalate}`.
-- [ ] Ownership + context graph (see [graph-strategy.md](graph-strategy.md)),
-      lazy/JIT population.
-- [ ] Independent **audit agent** as second opinion on the risk envelope; disagreement
-      → escalation.
+- [x] Policy engine: `(risk_envelope, owner) -> {auto | route | escalate}`. → `assent/policy.py` (D7).
+- [x] Ownership + context graph (see [graph-strategy.md](graph-strategy.md)),
+      lazy/JIT population. → `assent/graph.py` (D8).
+- [x] Independent **audit agent** as second opinion on the risk envelope; disagreement
+      → escalation. → `assent/audit.py` + engine integration (D9).
 - [ ] Auto-execute low-envelope writes in non-prod, SIEM-watched, one-click rollback.
+      *(needs real enforcement substrate + a live environment — not yet built.)*
 - **Goal:** the differentiated core — context-grounded, ownership-aware, risk-tiered
   gating.
 

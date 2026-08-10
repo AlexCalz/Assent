@@ -19,6 +19,7 @@ from assent import (
     PolicyEngine,
     Reversibility,
     RiskEnvelope,
+    RuleBasedAuditor,
     Source,
 )
 from assent.approval_card import render_page
@@ -91,15 +92,23 @@ def _changes(g: OwnershipGraph):
 
 def main() -> None:
     engine = PolicyEngine()
+    auditor = RuleBasedAuditor()
     g = _graph()
-    items = [(c, engine.evaluate(c)) for c in _changes(g)]
+
+    # Full pipeline per change: auditor forms an independent second opinion, then the
+    # engine gates the change with that opinion in hand.
+    items = []
+    for c in _changes(g):
+        opinion = auditor.review(c)
+        items.append((c, engine.evaluate(c, audit=opinion), opinion))
 
     out = sys.argv[1] if len(sys.argv) > 1 else "examples/approval_queue.html"
     with open(out, "w", encoding="utf-8") as f:
         f.write(render_page(items))
 
-    for change, result in items:
-        print(f"{change.action.type:18} -> {result.decision.value}")
+    for change, result, opinion in items:
+        print(f"{change.action.type:18} -> {result.decision.value:16} "
+              f"(audit {opinion.confidence:.2f}{' dissent' if opinion.dissent else ''})")
     print(f"\nwrote {out}")
 
 
