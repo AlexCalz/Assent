@@ -21,16 +21,32 @@ assent (low-risk, auto) or a human owner's assent (everything else).
 | [docs/roadmap.md](docs/roadmap.md) | Plan of action (crawl → walk → run) + the "next to explore" queue |
 | [docs/decisions.md](docs/decisions.md) | Running log of key decisions and *why* |
 
+## Run it
+
+```bash
+python -m assent.app        # then open http://127.0.0.1:8000
+```
+
+A working control plane: five detections arrive, the engine gates each one, and the
+approval queue lets you approve, deny, or undo — with a tamper-evident audit ledger at
+`/ledger`. Standard library only; nothing to install.
+
 ## Code
 
-The deterministic moat is now a reference implementation — the `Change` primitive and
+The deterministic moat is a reference implementation — the `Change` primitive and
 the pure-function `PolicyEngine`, exactly the part `docs/policy-engine.md` says "must be
 code: auditable, testable, versioned." No LLM calls, no third-party dependencies.
 
 | Path | Purpose |
 |---|---|
+| [assent/runtime.py](assent/runtime.py) | The `Assent` orchestrator — signal → propose → resolve owner → audit → gate → act or queue, plus approve/deny/rollback |
+| [assent/app.py](assent/app.py) | The web app — approval queue with working controls, and the audit ledger view |
 | [assent/change.py](assent/change.py) | The `Change` primitive + risk-envelope types |
 | [assent/catalog.py](assent/catalog.py) | The action catalog — the safety boundary (reversibility per action type) |
+| [assent/inventory.py](assent/inventory.py) | Measured system facts (environment, blast radius, tier-0). Unknown system → assume the worst |
+| [assent/proposer.py](assent/proposer.py) | Signal → typed catalog action. Refuses to propose what the catalog can't classify |
+| [assent/executor.py](assent/executor.py) | The hand-off seam to real enforcement (D5), with a simulated adapter for the demo |
+| [assent/ledger.py](assent/ledger.py) | Hash-chained, tamper-evident audit trail |
 | [assent/policy.py](assent/policy.py) | The deterministic `PolicyEngine`: `(risk_envelope, owner) -> {auto \| route \| escalate}` |
 | [assent/graph.py](assent/graph.py) | The ownership graph — "derive, don't demand" resolution (source ladder, confidence-scored edges, staleness decay) |
 | [assent/audit.py](assent/audit.py) | The independent audit agent — a second-opinion confidence read; disagreement is a deterministic escalation |
@@ -40,12 +56,13 @@ code: auditable, testable, versioned." No LLM calls, no third-party dependencies
 | [examples/render_cards.py](examples/render_cards.py) | End-to-end slice: graph resolves owner → engine gates → card renders |
 
 ```bash
-pytest                         # run the invariant suite
-python examples/demo.py        # watch the engine gate four changes
-python examples/render_cards.py  # generate the approval-queue page (examples/approval_queue.html)
+pytest                           # run the invariant suite (75 tests)
+python -m assent.app             # run the control plane
+python examples/demo.py          # watch the engine gate four changes
+python examples/render_cards.py  # generate a static approval-queue page
 ```
 
-Status: **concept validated; the differentiated core is prototyped.** The policy engine,
-the ownership-graph resolver, the independent audit agent, and the approval-card renderer
-are all real, tested code (44 tests). The remaining pieces are the LLM-facing diagnosis
-layer and the live enforcement/integration substrate — design, not build.
+Status: **working prototype.** The full loop runs end to end — detection in, gated
+decision out, human approval or auto-execution, undo, and a verifiable audit trail —
+backed by 75 tests. The remaining pieces are the LLM-facing diagnosis layer (today a
+deterministic playbook stands in) and real enforcement adapters (today simulated).

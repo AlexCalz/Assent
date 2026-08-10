@@ -105,6 +105,9 @@ body {
   padding: 2px 7px; border-radius: 5px;
 }
 .badge-tier0 { color: var(--escalate); background: var(--escalate-bg); border: 1px solid var(--escalate-line); }
+.badge-state { color: var(--ink-soft); background: var(--surface-2); border: 1px solid var(--border); }
+.rec-id { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
+.actions form { margin: 0; }
 .action-type {
   font-family: var(--mono); font-size: 18px; font-weight: 600;
   letter-spacing: -0.01em; margin: 0; color: var(--ink);
@@ -249,10 +252,7 @@ body {
           <ul class="reasons"><li>reversible + narrow + in-scope environment with a rollback plan and sufficient confidence; low risk envelope earns auto-execution</li></ul>
         </div>
 
-        <footer class="actions">
-          <button class="btn btn-primary tone-auto">Undo</button>
-          <button class="btn btn-secondary">View log</button>
-        </footer>
+        <footer class="actions"><button class="btn btn-primary tone-auto">Undo</button><button class="btn btn-secondary">View log</button></footer>
       </article>
     
 
@@ -307,10 +307,7 @@ body {
           <ul class="reasons"><li>independent audit dissents (prod target; tier-0 system; recoverable action); escalating</li></ul>
         </div>
 
-        <footer class="actions">
-          <button class="btn btn-primary tone-escalate">Take ownership</button>
-          <button class="btn btn-secondary">Deny</button>
-        </footer>
+        <footer class="actions"><button class="btn btn-primary tone-escalate">Take ownership</button><button class="btn btn-secondary">Deny</button></footer>
       </article>
     
 
@@ -365,10 +362,7 @@ body {
           <ul class="reasons"><li>confidence 0.72 below auto floor 0.85; confidence only tightens</li><li>routing to owner &#x27;team-endpoint&#x27; (confidence 0.80)</li></ul>
         </div>
 
-        <footer class="actions">
-          <button class="btn btn-primary tone-route">Approve &amp; execute</button>
-          <button class="btn btn-secondary">Deny</button>
-        </footer>
+        <footer class="actions"><button class="btn btn-primary tone-route">Approve &amp; execute</button><button class="btn btn-secondary">Deny</button></footer>
       </article>
     
 
@@ -423,10 +417,7 @@ body {
           <ul class="reasons"><li>independent audit dissents (irreversible action; no rollback plan); escalating</li></ul>
         </div>
 
-        <footer class="actions">
-          <button class="btn btn-primary tone-escalate">Take ownership</button>
-          <button class="btn btn-secondary">Deny</button>
-        </footer>
+        <footer class="actions"><button class="btn btn-primary tone-escalate">Take ownership</button><button class="btn btn-secondary">Deny</button></footer>
       </article>
     
     </div>

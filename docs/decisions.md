@@ -2,6 +2,23 @@
 
 Running record of key calls and *why*. Newest at top.
 
+## D10 — Build the product: a runnable control plane, not a library
+**Decision:** Assemble the parts into an operable application. Adds the four missing
+layers — `inventory.py` (measured environment / blast-radius / tier-0 facts),
+`proposer.py` (signal → typed catalog action), `executor.py` (the hand-off seam to real
+enforcement, per D5), `ledger.py` (hash-chained, tamper-evident audit trail) — plus
+`runtime.py` (the `Assent` orchestrator: submit → propose → resolve owner → audit →
+gate → act or queue, with approve/deny/rollback) and `app.py` (a stdlib HTTP app with a
+working approval queue). Skips the read-only Overview page and Phase-0 customer
+interviews as a sequencing call.
+**Why:** every safety property was real but unusable — changes were hand-constructed in
+examples and nothing could actually *run*. Two hand-waves in particular were load-
+bearing and are now closed: risk facts come from an inventory (unknown system ⇒
+assume prod + tier-0, so it cannot auto-execute), and actions come from a playbook that
+refuses to propose anything the catalog can't classify. The ledger answers the
+"accountability" trust blocker from vision.md with tamper-evidence rather than a log
+file. The graph flywheel is now real: approving in the UI writes an ownership claim.
+
 ## D9 — Independent audit agent as a deterministic escalation trigger
 **Decision:** Add the audit agent (`assent/audit.py`): an `AuditAgent` interface plus a
 deterministic `RuleBasedAuditor` that derives its *own* confidence from measured facts,

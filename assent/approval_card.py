@@ -98,8 +98,43 @@ def _audit_block(change: Change, audit: AuditOpinion) -> str:
     """
 
 
+def _controls(kind: str, record_id: str, verdict: "_Verdict") -> str:
+    """Real, working controls when the card is rendered inside the app.
+
+    ``kind`` is "decide" (awaiting a human), "undo" (already executed) or "" (settled —
+    no action left to take, so the card shows no buttons at all).
+    """
+    if not kind or not record_id:
+        return (
+            f'<footer class="actions">'
+            f'<button class="btn btn-primary tone-{verdict.tone}">{_e(verdict.primary)}</button>'
+            f'<button class="btn btn-secondary">{_e(verdict.secondary)}</button>'
+            f"</footer>"
+        )
+    rid = _e(record_id)
+    if kind == "decide":
+        return f"""<footer class="actions">
+          <form method="post" action="/approve"><input type="hidden" name="id" value="{rid}">
+            <button class="btn btn-primary tone-{verdict.tone}" type="submit">Approve &amp; execute</button></form>
+          <form method="post" action="/deny"><input type="hidden" name="id" value="{rid}">
+            <button class="btn btn-secondary" type="submit">Deny</button></form>
+        </footer>"""
+    if kind == "undo":
+        return f"""<footer class="actions">
+          <form method="post" action="/rollback"><input type="hidden" name="id" value="{rid}">
+            <button class="btn btn-secondary" type="submit">Undo this change</button></form>
+        </footer>"""
+    return ""
+
+
 def render_card(
-    change: Change, result: PolicyResult, audit: Optional[AuditOpinion] = None
+    change: Change,
+    result: PolicyResult,
+    audit: Optional[AuditOpinion] = None,
+    *,
+    record_id: str = "",
+    state_label: str = "",
+    controls: str = "",
 ) -> str:
     verdict = _VERDICTS[result.decision]
     action = change.action
@@ -115,6 +150,10 @@ def render_card(
     tier0_badge = (
         '<span class="badge badge-tier0">tier-0</span>' if env.hits_tier0 else ""
     )
+    state_badge = (
+        f'<span class="badge badge-state">{_e(state_label)}</span>' if state_label else ""
+    )
+    id_badge = f'<span class="rec-id">{_e(record_id)}</span>' if record_id else ""
     owner_conf = f"{round(change.owner.confidence * 100)}%" if change.owner.known else "—"
     owner_line = (
         f'{_e(change.owner.id)} <span class="muted">· {_e(change.owner.source)} · {owner_conf}</span>'
@@ -136,7 +175,7 @@ def render_card(
         <header class="card-head">
           <div class="verdict">
             <span class="pill pill-{verdict.tone}">{_e(verdict.label)}</span>
-            {tier0_badge}
+            {tier0_badge}{state_badge}{id_badge}
           </div>
           <h2 class="action-type">{_e(action.type)}</h2>
           <p class="stance">{_e(verdict.stance)}</p>
@@ -173,10 +212,7 @@ def render_card(
           <ul class="reasons">{reasons}</ul>
         </div>
 
-        <footer class="actions">
-          <button class="btn btn-primary tone-{verdict.tone}">{_e(verdict.primary)}</button>
-          <button class="btn btn-secondary">{_e(verdict.secondary)}</button>
-        </footer>
+        {_controls(controls, record_id, verdict)}
       </article>
     """
 
@@ -282,6 +318,9 @@ body {
   padding: 2px 7px; border-radius: 5px;
 }
 .badge-tier0 { color: var(--escalate); background: var(--escalate-bg); border: 1px solid var(--escalate-line); }
+.badge-state { color: var(--ink-soft); background: var(--surface-2); border: 1px solid var(--border); }
+.rec-id { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
+.actions form { margin: 0; }
 .action-type {
   font-family: var(--mono); font-size: 18px; font-weight: 600;
   letter-spacing: -0.01em; margin: 0; color: var(--ink);
