@@ -2,6 +2,19 @@
 
 Running record of key calls and *why*. Newest at top.
 
+## D7 — The approval card and demo both make the trust machinery *visible*
+**Decision:** The approval card shows every risk score with its **source**
+(`blast_radius (graph)`, `confidence (LLM + audit)`, …), surfaces acting-vs-audit
+divergence side by side, and always pre-populates rollback; the demo narrative centers on
+a **poison test** (a planted malicious runbook line) and a **novel, un-playbookable**
+incident that spans both an auto-execute and a gated action. See
+[approval-card.md](approval-card.md) and [demo-narrative.md](demo-narrative.md).
+**Why:** The differentiators (graded envelope, ownership routing, "context raises caution
+never permission") are invisible unless the UI and the demo make them *felt*. The card is
+where trust is spent and compounded; the demo's job is proving the "why now" — reasoning
+over what no playbook wrote — not re-showing what SOAR already does. Making the
+deterministic/LLM boundary literally on-screen is the honest, defensible pitch.
+
 ## D6 — Policy engine boundary: "LLM may only tighten the gate"
 **Decision:** Invariant — the LLM may produce any input that only makes the gate *more*
 conservative; anything that could *relax* it (blast radius, reversibility, environment,

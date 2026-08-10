@@ -16,6 +16,8 @@ assent (low-risk, auto) or a human owner's assent (everything else).
 | [docs/vision.md](docs/vision.md) | Mission, the problem, the wedge, positioning vs. incumbents |
 | [docs/objectives.md](docs/objectives.md) | Objectives + non-negotiable design principles |
 | [docs/policy-engine.md](docs/policy-engine.md) | The gating engine — where the deterministic/LLM boundary sits |
+| [docs/approval-card.md](docs/approval-card.md) | The hero component — how a human owner approves a gated `Change` |
+| [docs/demo-narrative.md](docs/demo-narrative.md) | The single "wow" flow — an agent handling what no playbook anticipated |
 | [docs/graph-strategy.md](docs/graph-strategy.md) | Populating the ownership + context graph without a 6-month slog |
 | [docs/competitive-landscape.md](docs/competitive-landscape.md) | Market read (Aug 2026) + the "ride on enforcement" reframe |
 | [docs/roadmap.md](docs/roadmap.md) | Plan of action (crawl → walk → run) + the "next to explore" queue |
