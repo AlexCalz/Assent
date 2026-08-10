@@ -2,6 +2,17 @@
 
 Running record of key calls and *why*. Newest at top.
 
+## D7 — First code is the deterministic policy engine, not the agents
+**Decision:** The first product code is a dependency-free reference implementation of
+the `Change` primitive + `PolicyEngine` pure function (`assent/`), with an invariant
+test suite. The LLM-facing pieces stay on paper for now.
+**Why:** The moat is the *decision*, not the agents (D2), and `policy-engine.md` says
+that decision "must be code: auditable, testable, versioned." Materializing it first
+makes every safety invariant executable — D6 ("confidence only tightens"), "no rollback
+→ no autonomy," "context raises caution, never permission," "unknown owner → escalate"
+are now tests that fail loudly if broken — before any agent or integration exists to
+muddy it. Cheapest possible way to prove the core holds together.
+
 ## D6 — Policy engine boundary: "LLM may only tighten the gate"
 **Decision:** Invariant — the LLM may produce any input that only makes the gate *more*
 conservative; anything that could *relax* it (blast radius, reversibility, environment,

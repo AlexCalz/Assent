@@ -39,8 +39,10 @@ The wedge is a **customer-appetite bet, not a technical one.**
 ## Next-to-explore queue
 Ideas to pull into a design session when we get there:
 
-- [ ] **Policy engine design** — how the risk envelope is computed; where the
-      deterministic / LLM boundary sits.
+- [x] **Policy engine design** — how the risk envelope is computed; where the
+      deterministic / LLM boundary sits. → Prototyped as code in `assent/` (see D7):
+      the `Change` primitive, the action catalog as the safety boundary, and the
+      deterministic `policy()` pure function, with an invariant test suite.
 - [ ] **Approval card design** — the hero component; make approval fast + complete.
 - [ ] **Demo narrative** — the single "wow" flow: an agent handling something no
       playbook anticipated.

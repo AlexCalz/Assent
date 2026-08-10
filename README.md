@@ -21,5 +21,25 @@ assent (low-risk, auto) or a human owner's assent (everything else).
 | [docs/roadmap.md](docs/roadmap.md) | Plan of action (crawl → walk → run) + the "next to explore" queue |
 | [docs/decisions.md](docs/decisions.md) | Running log of key decisions and *why* |
 
-Status: **concept / validated brainstorm.** No product code yet. This is the thinking,
-captured.
+## Code
+
+The deterministic moat is now a reference implementation — the `Change` primitive and
+the pure-function `PolicyEngine`, exactly the part `docs/policy-engine.md` says "must be
+code: auditable, testable, versioned." No LLM calls, no third-party dependencies.
+
+| Path | Purpose |
+|---|---|
+| [assent/change.py](assent/change.py) | The `Change` primitive + risk-envelope types |
+| [assent/catalog.py](assent/catalog.py) | The action catalog — the safety boundary (reversibility per action type) |
+| [assent/policy.py](assent/policy.py) | The deterministic `PolicyEngine`: `(risk_envelope, owner) -> {auto \| route \| escalate}` |
+| [tests/test_policy.py](tests/test_policy.py) | Invariant tests — each pins a principle from the docs |
+| [examples/demo.py](examples/demo.py) | Four scenarios showing the three gates and *why* |
+
+```bash
+pytest                     # run the invariant suite
+python examples/demo.py    # watch the engine gate four changes
+```
+
+Status: **concept validated; deterministic core prototyped.** The policy engine is real,
+tested code. The LLM-facing pieces (diagnosis, catalog normalization, ownership-graph
+population, audit agent) are still design, not build.
