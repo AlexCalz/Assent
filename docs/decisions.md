@@ -2,6 +2,17 @@
 
 Running record of key calls and *why*. Newest at top.
 
+## D7 — Approval card is the Change primitive, rendered — and it re-gates on edit
+**Decision:** The human-facing approval card renders the `Change` object directly (action,
+doc-cited reasoning, four-variable envelope, rollback, owner-with-provenance), always shows
+the independent audit agent's confidence alongside the acting agent's, and treats **"Approve
+with edits" as a new change re-run through the deterministic policy engine.** Silence never
+approves — timeout escalates. Decline is one click and teaches.
+**Why:** The card is where three differentiators (graded risk-to-act, ownership routing,
+doc-grounded reasoning) become tangible to a buyer, and where rubber-stamping must be
+designed out. Re-gating on edit keeps the action catalog as the safety boundary even on the
+human path; editing can't smuggle an action past the gate. See [approval-card.md](approval-card.md).
+
 ## D6 — Policy engine boundary: "LLM may only tighten the gate"
 **Decision:** Invariant — the LLM may produce any input that only makes the gate *more*
 conservative; anything that could *relax* it (blast radius, reversibility, environment,

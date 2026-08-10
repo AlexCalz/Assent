@@ -41,7 +41,8 @@ Ideas to pull into a design session when we get there:
 
 - [ ] **Policy engine design** — how the risk envelope is computed; where the
       deterministic / LLM boundary sits.
-- [ ] **Approval card design** — the hero component; make approval fast + complete.
+- [x] **Approval card design** — the hero component; make approval fast + complete.
+      → [approval-card.md](approval-card.md)
 - [ ] **Demo narrative** — the single "wow" flow: an agent handling something no
       playbook anticipated.
 - [ ] **Technical architecture** — agent orchestration, JIT/privilege model, policy
