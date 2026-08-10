@@ -43,7 +43,10 @@ Ideas to pull into a design session when we get there:
       deterministic / LLM boundary sits. → Prototyped as code in `assent/` (see D7):
       the `Change` primitive, the action catalog as the safety boundary, and the
       deterministic `policy()` pure function, with an invariant test suite.
-- [ ] **Approval card design** — the hero component; make approval fast + complete.
+- [x] **Approval card design** — the hero component; make approval fast + complete.
+      → Built as `assent/approval_card.py` (see D8): renders a gated `Change` + the
+      engine's audit trail from real `PolicyResult` output. `examples/render_cards.py`
+      produces the approval-queue page end-to-end (graph → engine → card).
 - [ ] **Demo narrative** — the single "wow" flow: an agent handling something no
       playbook anticipated.
 - [ ] **Technical architecture** — agent orchestration, JIT/privilege model, policy

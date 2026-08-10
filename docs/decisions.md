@@ -2,6 +2,20 @@
 
 Running record of key calls and *why*. Newest at top.
 
+## D8 — Build out to a full slice: graph resolver + approval card on the engine
+**Decision:** Extend the deterministic core with two pieces, in order: (1) the ownership
+graph resolver (`assent/graph.py`) — the source ladder, confidence-scored edges,
+corroboration up / staleness down, resolving JIT per change; (2) the approval-card
+renderer (`assent/approval_card.py`) — the "hero component," rendered from *real*
+`PolicyResult` output. `examples/render_cards.py` wires all three end-to-end.
+**Why:** The resolver was already the engine's most-hand-waved input (a plain `Owner`);
+making it real closes the "unknown owner → escalate" safety story with actual decay/
+corroboration math (graph-strategy.md), and gives the card a truthful owner + confidence
+to display. The card was the top remaining `next-to-explore` item and the thing that
+makes the whole thesis legible: it shows the audit trail the engine produced, and by
+construction only *displays* the gate — it can't change it. LLM-produced reasoning is
+HTML-escaped (untrusted-input hygiene, consistent with the poisoned-doc rule).
+
 ## D7 — First code is the deterministic policy engine, not the agents
 **Decision:** The first product code is a dependency-free reference implementation of
 the `Change` primitive + `PolicyEngine` pure function (`assent/`), with an invariant

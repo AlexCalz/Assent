@@ -20,6 +20,7 @@ from assent.change import (
     RiskEnvelope,
 )
 from assent.catalog import ActionCatalog, ActionClass, DEFAULT_CATALOG
+from assent.graph import OwnershipClaim, OwnershipGraph, Source
 from assent.policy import Decision, PolicyEngine, PolicyResult
 
 __all__ = [
@@ -31,10 +32,13 @@ __all__ = [
     "Decision",
     "Environment",
     "Owner",
+    "OwnershipClaim",
+    "OwnershipGraph",
     "PolicyEngine",
     "PolicyResult",
     "Reversibility",
     "RiskEnvelope",
+    "Source",
 ]
 
 __version__ = "0.1.0"

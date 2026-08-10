@@ -1,5 +1,11 @@
 # Ownership & Context Graph — Population Strategy
 
+> **Status:** the resolver is prototyped in [`assent/graph.py`](../assent/graph.py) (D8) —
+> the source ladder, confidence-scored edges with provenance, corroboration (noisy-OR)
+> and staleness decay, JIT `resolve(system)`, and the degrade-to-unknown safety property.
+> What's below is the strategy it implements.
+
+
 The graph maps `system -> owner` (for approval routing) and `system -> risk-relevant
 facts` (for risk assessment). The hard part isn't the schema — it's populating it
 without a six-month integration slog. The answer: **derive, don't demand.**
