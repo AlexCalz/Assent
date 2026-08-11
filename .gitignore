@@ -12,3 +12,6 @@ __pycache__/
 # demo recording output
 demo/video/
 *.webm
+demo/out/
+*.pdf
+*.mp4
