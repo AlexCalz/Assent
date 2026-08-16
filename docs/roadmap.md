@@ -12,36 +12,45 @@ The wedge is a **customer-appetite bet, not a technical one.**
 - [ ] Decide: is "safe autonomous remediation" a standalone product or a feature?
 
 ## Phase 1 — Read-only co-pilot (zero write risk)
-- [ ] Infra **Overview** page: diagram of what the system sees (firewall, routers,
-      Kubernetes, servers…).
+- [x] Infra **Overview** page: diagram of what the system sees (firewall, routers,
+      Kubernetes, servers…). → `/overview` in the dashboard (D11).
 - [ ] **Chat** that answers posture questions from real data ("is Cortex installed on
       X?", "what are we vulnerable to right now?").
-- [ ] Audit log of everything the system observes.
+- [x] Audit log of everything the system observes. → tamper-evident `/ledger` + live
+      audit rail (D10/D11).
 - **Goal:** immediately useful, touches nothing dangerous, earns trust.
 
 ## Phase 2 — Suggest-only (approval UX gets battle-tested)
-- [ ] Agents work **Tickets** and *propose* actions via the approval card (exact
-      command, target, blast radius, reasoning, rollback).
+- [x] Agents work **Tickets** and *propose* actions via the approval card (exact
+      command, target, blast radius, reasoning, rollback). → Mission queue + gated
+      remediation panel; incident package view borrowed from TRIDENT-AI IA (D11).
 - [ ] Human executes. NL "text-to-action" produces a *plan*, never a direct execution.
-- [ ] Agent **org chart** view (SOC analyst → SOC / mgr / audit agents → CISO level).
+- [x] Agent **org chart** / roster view (acting proposer → ownership → audit → policy).
+      → `assent/agents.py` + sidebar (D11).
 - **Goal:** prove the approval card + the Change primitive.
 
 ## Phase 3 — Bounded autonomy (earn the dial)
-- [ ] Policy engine: `(risk_envelope, owner) -> {auto | route | escalate}`.
-- [ ] Ownership + context graph (see [graph-strategy.md](graph-strategy.md)),
-      lazy/JIT population.
-- [ ] Independent **audit agent** as second opinion on the risk envelope; disagreement
-      → escalation.
+- [x] Policy engine: `(risk_envelope, owner) -> {auto | route | escalate}`. → `assent/policy.py` (D7).
+- [x] Ownership + context graph (see [graph-strategy.md](graph-strategy.md)),
+      lazy/JIT population. → `assent/graph.py` (D8).
+- [x] Independent **audit agent** as second opinion on the risk envelope; disagreement
+      → escalation. → `assent/audit.py` + engine integration (D9).
 - [ ] Auto-execute low-envelope writes in non-prod, SIEM-watched, one-click rollback.
+      *(needs real enforcement substrate + a live environment — not yet built.)*
 - **Goal:** the differentiated core — context-grounded, ownership-aware, risk-tiered
   gating.
 
 ## Next-to-explore queue
 Ideas to pull into a design session when we get there:
 
-- [ ] **Policy engine design** — how the risk envelope is computed; where the
-      deterministic / LLM boundary sits.
-- [ ] **Approval card design** — the hero component; make approval fast + complete.
+- [x] **Policy engine design** — how the risk envelope is computed; where the
+      deterministic / LLM boundary sits. → Prototyped as code in `assent/` (see D7):
+      the `Change` primitive, the action catalog as the safety boundary, and the
+      deterministic `policy()` pure function, with an invariant test suite.
+- [x] **Approval card design** — the hero component; make approval fast + complete.
+      → Built as `assent/approval_card.py` (see D8): renders a gated `Change` + the
+      engine's audit trail from real `PolicyResult` output. `examples/render_cards.py`
+      produces the approval-queue page end-to-end (graph → engine → card).
 - [ ] **Demo narrative** — the single "wow" flow: an agent handling something no
       playbook anticipated.
 - [ ] **Technical architecture** — agent orchestration, JIT/privilege model, policy
