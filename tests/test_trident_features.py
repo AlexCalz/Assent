@@ -41,15 +41,17 @@ def test_triage_package_for_unmapped_signal():
     assert "no playbook" in pkg.executive_summary.lower() or "ask-a-human" in pkg.executive_summary.lower()
 
 
-def test_mission_dashboard_renders_trident_ia():
+def test_mission_dashboard_renders_chat_shell():
     app = demo_app()
     page = render_mission(app, actor="alex", profile="cloud")
     assert "Assent" in page
-    assert "Agent roster" in page
-    assert "Run demo scenario" in page
-    assert "Audit trail" in page
+    assert "Alerts" in page
+    assert "Approvals" in page
+    assert "Infrastructure" in page
+    assert "Jordan" in page
+    assert "Simulate alert" in page
     assert "Cloud · Personal" in page
-    assert "Waiting on you" in page
+    assert "acting as" in page
 
 
 def test_private_profile_label():
@@ -63,7 +65,9 @@ def test_overview_lists_inventory():
     app = demo_app()
     page = render_overview(app, actor="alex", profile="cloud")
     assert "payments-api" in page
-    assert "Infrastructure overview" in page
+    assert "Infrastructure" in page
+    assert "pt-canvas" in page
+    assert "Acting Proposer" in page
 
 
 def test_change_package_page():
@@ -74,6 +78,17 @@ def test_change_package_page():
     assert "Executive summary" in page
     assert "Agent reasoning trace" in page
     assert "Gated remediation" in page
+
+
+def test_approvals_split_you_vs_jordan():
+    from assent.dashboard import render_app
+
+    app = demo_app()
+    you = render_app(app, actor="you", profile="cloud", tool="approvals")
+    jordan = render_app(app, actor="jordan", profile="cloud", tool="approvals")
+    assert "Desk of <strong>You</strong>" in you
+    assert "Desk of <strong>Jordan Hale</strong>" in jordan
+    assert "payments-api" in jordan or "payments-latency" in jordan
 
 
 def test_demo_inject_adds_signals():

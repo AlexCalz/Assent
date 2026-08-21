@@ -2,9 +2,11 @@
 
     python -m assent.app          # then open http://127.0.0.1:8000
 
-Serves the Trident-inspired dashboard over HTTP with working controls: approve,
-deny, undo, demo inject, and dual deploy profiles all drive the real ``Assent``
-runtime. Standard library only.
+Serves a ChatGPT-style control plane over HTTP: alerts as conversation
+headers, tools (Chat / Approvals / Infrastructure) in the top bar, a You /
+Jordan desk toggle, and a Packet Tracer topology with agents on the nodes
+they are working. Approve, deny, undo, demo inject, and profile switch all
+drive the real ``Assent`` runtime. Standard library only.
 """
 
 from __future__ import annotations
@@ -17,7 +19,10 @@ from urllib.parse import parse_qs, urlparse
 
 from assent.change import Environment
 from assent.dashboard import (
+    PEOPLE,
     PROFILES,
+    answer_question,
+    render_app,
     render_change,
     render_ledger_page,
     render_mission,
@@ -67,6 +72,7 @@ def demo_app(now: Optional[datetime] = None) -> Assent:
 
     app = Assent(inventory=inventory, graph=graph)
     _seed_baseline(app, now)
+    _seed_jordan_history(app, now)
     return app
 
 
@@ -91,6 +97,18 @@ def _seed_baseline(app: Assent, now: datetime) -> None:
                       summary="Shadow-copy deletion observed; no playbook exists.",
                       indicators={"process": "vssadmin.exe"}, source="edr",
                       severity="critical"), now=now)
+
+
+def _seed_jordan_history(app: Assent, now: datetime) -> None:
+    """One settled payments-owner decision so Audit isn't empty when you sit as Jordan."""
+    record = app.submit(Signal(
+        "overprivileged_role", "payments-latency",
+        summary="Role on the payments latency probe granted org-wide write.",
+        indicators={"role": "latency-writer"}, source="cspm",
+        severity="medium",
+    ), now=now)
+    if record.state.open and record.change is not None:
+        app.approve(record.id, actor="jordan", now=now)
 
 
 def inject_demo_scenario(app: Assent, now: Optional[datetime] = None) -> None:
@@ -123,6 +141,7 @@ class _Handler(BaseHTTPRequestHandler):
     app: Assent
     actor: str
     profile: str = "cloud"
+    chats: dict
 
     def log_message(self, fmt, *args):  # quieter console
         pass
@@ -141,6 +160,12 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
+    def _selected(self) -> Optional[str]:
+        return (parse_qs(urlparse(self.path).query).get("c") or [None])[0]
+
+    def _extras(self, change_id: str):
+        return (self.chats or {}).get(change_id) or []
+
     def _not_found(self) -> None:
         self._send(
             render_mission(self.app, actor=self.actor, profile=self.profile),
@@ -149,12 +174,22 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = urlparse(self.path).path
+        selected = self._selected()
         if path == "/":
-            self._send(render_mission(self.app, actor=self.actor, profile=self.profile))
-        elif path == "/overview":
-            self._send(render_overview(self.app, actor=self.actor, profile=self.profile))
-        elif path == "/ledger":
-            self._send(render_ledger_page(self.app, actor=self.actor, profile=self.profile))
+            self._send(render_app(
+                self.app, actor=self.actor, profile=self.profile, tool="chat",
+                selected_id=selected,
+            ))
+        elif path in {"/approvals", "/ledger"}:
+            self._send(render_app(
+                self.app, actor=self.actor, profile=self.profile, tool="approvals",
+                selected_id=selected,
+            ))
+        elif path in {"/infra", "/overview"}:
+            self._send(render_app(
+                self.app, actor=self.actor, profile=self.profile, tool="infra",
+                selected_id=selected,
+            ))
         elif path.startswith("/change/"):
             change_id = path[len("/change/"):]
             try:
@@ -164,6 +199,7 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             self._send(render_change(
                 self.app, record, actor=self.actor, profile=self.profile,
+                extras=self._extras(change_id),
             ))
         else:
             self._send(
@@ -184,7 +220,7 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             if path == "/deny":
                 self.app.deny(change_id, actor=self.actor)
-                self._redirect("/")
+                self._redirect("/approvals")
                 return
             if path == "/rollback":
                 self.app.rollback(change_id, actor=self.actor)
@@ -199,6 +235,28 @@ class _Handler(BaseHTTPRequestHandler):
                 if chosen in PROFILES:
                     type(self).profile = chosen
                 self._redirect("/")
+                return
+            if path == "/actor":
+                chosen = (form.get("actor") or ["you"])[0]
+                if chosen in PEOPLE:
+                    type(self).actor = chosen
+                nxt = (form.get("next") or ["/"])[0]
+                if not nxt.startswith("/") or nxt.startswith("//"):
+                    nxt = "/"
+                self._redirect(nxt or "/")
+                return
+            if path == "/ask":
+                question = (form.get("q") or [""])[0].strip()
+                record = self.app.require(change_id)
+                if question:
+                    chats = type(self).chats
+                    if chats is None:
+                        chats = {}
+                        type(self).chats = chats
+                    thread = chats.setdefault(change_id, [])
+                    thread.append({"role": "user", "text": question})
+                    thread.append({"role": "assistant", "text": answer_question(record, question)})
+                self._redirect(f"/change/{change_id}")
                 return
             self._not_found()
             return
@@ -217,7 +275,7 @@ def serve(
     handler = type(
         "Handler",
         (_Handler,),
-        {"app": app, "actor": actor, "profile": profile},
+        {"app": app, "actor": actor, "profile": profile, "chats": {}},
     )
     server = ThreadingHTTPServer((host, port), handler)
     print(f"Assent running at http://{host}:{port}  (acting as {actor}, profile={profile})")
