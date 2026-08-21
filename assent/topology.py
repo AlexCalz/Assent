@@ -23,7 +23,8 @@ _FABRIC: Tuple[dict, ...] = (
     {"id": "internet", "label": "Internet", "kind": "cloud", "x": 560, "y": 58, "zone": "wan"},
     {"id": "staging-edge-fw", "label": "Edge FW", "kind": "firewall", "x": 560, "y": 168, "zone": "edge"},
     {"id": "stg-access-sw", "label": "Stg Access", "kind": "switch", "x": 220, "y": 300, "zone": "staging"},
-    {"id": "laptop-4471", "label": "laptop-4471", "kind": "endpoint", "x": 220, "y": 430, "zone": "staging"},
+    {"id": "laptop-4471", "label": "laptop-4471", "kind": "endpoint", "x": 220, "y": 410, "zone": "staging"},
+    {"id": "payments-staging-api", "label": "payments-staging-api", "kind": "server", "x": 220, "y": 525, "zone": "staging"},
     {"id": "prod-core-sw", "label": "Prod Core", "kind": "switch", "x": 560, "y": 300, "zone": "prod"},
     {"id": "auth-service", "label": "auth-service", "kind": "identity", "x": 430, "y": 430, "zone": "prod"},
     {"id": "payments-api", "label": "payments-api", "kind": "server", "x": 560, "y": 430, "zone": "prod"},
@@ -36,6 +37,7 @@ _LINKS: Tuple[Tuple[str, str], ...] = (
     ("internet", "staging-edge-fw"),
     ("staging-edge-fw", "stg-access-sw"),
     ("stg-access-sw", "laptop-4471"),
+    ("stg-access-sw", "payments-staging-api"),
     ("staging-edge-fw", "prod-core-sw"),
     ("staging-edge-fw", "dev-sandbox-07"),
     ("prod-core-sw", "auth-service"),
@@ -47,7 +49,7 @@ _LINKS: Tuple[Tuple[str, str], ...] = (
 _ZONES: Tuple[dict, ...] = (
     {"id": "wan", "label": "WAN", "x": 470, "y": 12, "w": 180, "h": 92, "fill": "#e8eef2"},
     {"id": "edge", "label": "Edge / DMZ", "x": 470, "y": 118, "w": 180, "h": 100, "fill": "#f3ead6"},
-    {"id": "staging", "label": "Staging", "x": 120, "y": 240, "w": 200, "h": 260, "fill": "#e7f1ea"},
+    {"id": "staging", "label": "Staging", "x": 118, "y": 240, "w": 204, "h": 330, "fill": "#e7f1ea"},
     {"id": "prod", "label": "Production", "x": 370, "y": 240, "w": 400, "h": 370, "fill": "#f6e7e7"},
     {"id": "dev", "label": "Dev", "x": 810, "y": 240, "w": 180, "h": 220, "fill": "#e7eef6"},
 )
@@ -123,9 +125,9 @@ def _icon(kind: str, x: float, y: float, hot: bool) -> str:
     if kind == "cloud":
         return f"""
         <g transform="translate({x},{y})">
-          <ellipse cx="0" cy="4" rx="34" ry="16" fill="{fill}" stroke="{stroke}" stroke-width="1.6"/>
-          <ellipse cx="-18" cy="-2" rx="14" ry="12" fill="{fill}" stroke="{stroke}" stroke-width="1.6"/>
-          <ellipse cx="16" cy="-4" rx="16" ry="13" fill="{fill}" stroke="{stroke}" stroke-width="1.6"/>
+          <path d="M-30 10 q-9 0 -9 -8 0 -8 9 -8.6 1.4 -10.4 12 -10.4 7.6 0 10.6 6.4
+                   2.6 -3.4 7.6 -3.4 7.8 0 8.8 7.6 8.4 0.8 8.4 8.4 0 8 -9 8 z"
+                fill="{fill}" stroke="{stroke}" stroke-width="1.6" stroke-linejoin="round"/>
         </g>"""
     if kind == "firewall":
         return f"""
@@ -255,28 +257,44 @@ def render_topology(
             )
         _ = known  # inventory miss is still drawn as fabric
 
-    legend = """
-    <g class="pt-legend" transform="translate(24,600)">
-      <text class="pt-zone-label" x="0" y="0">Agents on a node</text>
-      <g transform="translate(0,18)">
-        <circle class="agent-pin pin-working" r="8" cx="8" cy="0"/><text x="22" y="4">P proposer</text>
-        <circle class="agent-pin pin-working" r="8" cx="128" cy="0"/><text x="142" y="4">O owner resolver</text>
-        <circle class="agent-pin pin-blocked" r="8" cx="292" cy="0"/><text x="306" y="4">A auditor</text>
-        <circle class="agent-pin pin-complete" r="8" cx="412" cy="0"/><text x="426" y="4">E policy engine</text>
+    def key(dx: float, letter: str, label: str) -> str:
+        return f"""
+        <g transform="translate({dx},0)">
+          <circle class="legend-pin" r="8.5" cx="8" cy="0"/>
+          <text class="legend-letter" x="8" y="3.4" text-anchor="middle">{letter}</text>
+          <text x="23" y="3.6">{label}</text>
+        </g>"""
+
+    legend = f"""
+    <g class="pt-legend" transform="translate(26,634)">
+      <text class="pt-zone-label" x="0" y="0">Agents working a device</text>
+      <g transform="translate(0,20)">
+        {key(0, 'P', 'proposer')}
+        {key(108, 'O', 'owner resolver')}
+        {key(258, 'A', 'auditor')}
+        {key(366, 'E', 'policy engine')}
+      </g>
+      <g transform="translate(0,44)">
+        <text class="pt-zone-label" x="0" y="0">Pin colour = state</text>
+        <g transform="translate(158,-4)">
+          <circle class="pin-working" r="5" cx="5" cy="0"/><text x="16" y="3.4">working</text>
+          <circle class="pin-blocked" r="5" cx="98" cy="0"/><text x="109" y="3.4">blocked</text>
+          <circle class="pin-complete" r="5" cx="188" cy="0"/><text x="199" y="3.4">settled</text>
+        </g>
       </g>
     </g>
     """
 
     return f"""
     <div class="pt-wrap">
-      <svg class="pt-canvas" viewBox="0 0 1100 640" role="img" aria-label="Infrastructure topology">
+      <svg class="pt-canvas" viewBox="0 0 1100 712" role="img" aria-label="Infrastructure topology">
         <defs>
           <pattern id="pt-grid" width="20" height="20" patternUnits="userSpaceOnUse">
             <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(21,32,40,0.05)" stroke-width="1"/>
           </pattern>
         </defs>
-        <rect width="1100" height="640" fill="#f3f1ea"/>
-        <rect width="1100" height="640" fill="url(#pt-grid)"/>
+        <rect width="1100" height="712" fill="#f3f1ea"/>
+        <rect width="1100" height="712" fill="url(#pt-grid)"/>
         {''.join(zones)}
         {''.join(links)}
         {''.join(devices)}

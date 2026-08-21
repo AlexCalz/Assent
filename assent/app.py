@@ -59,20 +59,24 @@ def demo_app(now: Optional[datetime] = None) -> Assent:
     inventory.add(SystemRecord("analytics-worker", Environment.PROD, dependents=2))
     inventory.add(SystemRecord("auth-service", Environment.PROD, tier0=True, dependents=6))
     inventory.add(SystemRecord("payments-latency", Environment.PROD, dependents=3))
+    inventory.add(SystemRecord("payments-staging-api", Environment.STAGING, dependents=1))
 
     graph = OwnershipGraph()
     graph.add(OwnershipClaim("staging-edge-fw", "team-netsec", Source.CODE, now))
     graph.add(OwnershipClaim("staging-edge-fw", "team-netsec", Source.OPS, now))
     graph.add(OwnershipClaim("payments-api", "team-payments", Source.CODE, now))
+    graph.add(OwnershipClaim("payments-staging-api", "team-payments", Source.CODE, now))
+    graph.add(OwnershipClaim("payments-staging-api", "team-payments", Source.OPS, now))
     graph.add(OwnershipClaim("laptop-4471", "team-endpoint", Source.OPS, now))
     graph.add(OwnershipClaim("analytics-worker", "team-data", Source.CLOUD, now))
+    graph.add(OwnershipClaim("analytics-worker", "team-data", Source.OPS, now))
     graph.add(OwnershipClaim("auth-service", "team-identity", Source.CODE, now))
     graph.add(OwnershipClaim("auth-service", "team-identity", Source.OPS, now))
     # dev-sandbox-07 deliberately has no owner on file.
 
     app = Assent(inventory=inventory, graph=graph)
     _seed_baseline(app, now)
-    _seed_jordan_history(app, now)
+    _seed_team_history(app, now)
     return app
 
 
@@ -89,6 +93,10 @@ def _seed_baseline(app: Assent, now: datetime) -> None:
                       summary="Periodic beaconing to an unclassified host.",
                       indicators={"interval_s": "60", "ip": "203.0.113.77"}, source="edr",
                       severity="high"), now=now)
+    app.submit(Signal("leaked_credential", "payments-staging-api",
+                      summary="Staging payments key committed to a public gist.",
+                      indicators={"key_id": "AKIA…3F1"}, source="secret-scanner",
+                      severity="high"), now=now)
     app.submit(Signal("overprivileged_role", "analytics-worker",
                       summary="Role grants org-wide write access.",
                       indicators={"role": "analytics-writer"}, source="cspm",
@@ -99,16 +107,25 @@ def _seed_baseline(app: Assent, now: datetime) -> None:
                       severity="critical"), now=now)
 
 
-def _seed_jordan_history(app: Assent, now: datetime) -> None:
-    """One settled payments-owner decision so Audit isn't empty when you sit as Jordan."""
-    record = app.submit(Signal(
-        "overprivileged_role", "payments-latency",
-        summary="Role on the payments latency probe granted org-wide write.",
-        indicators={"role": "latency-writer"}, source="cspm",
-        severity="medium",
-    ), now=now)
-    if record.state.open and record.change is not None:
-        app.approve(record.id, actor="jordan", now=now)
+def _seed_team_history(app: Assent, now: datetime) -> None:
+    """Settled decisions from named owners so the team audit isn't empty on first run."""
+    seeds = (
+        ("jordan", Signal(
+            "overprivileged_role", "payments-latency",
+            summary="Role on the payments latency probe granted org-wide write.",
+            indicators={"role": "latency-writer"}, source="cspm", severity="medium",
+        )),
+        ("priya", Signal(
+            "compromised_session", "auth-service",
+            summary="Session token replayed from an unrecognized ASN.",
+            indicators={"user": "svc-checkout", "asn": "AS20473"},
+            source="identity-monitor", severity="high",
+        )),
+    )
+    for who, signal in seeds:
+        record = app.submit(signal, now=now)
+        if record.state.open and record.change is not None:
+            app.approve(record.id, actor=who, now=now)
 
 
 def inject_demo_scenario(app: Assent, now: Optional[datetime] = None) -> None:
@@ -137,10 +154,19 @@ def inject_demo_scenario(app: Assent, now: Optional[datetime] = None) -> None:
 # --------------------------------------------------------------------- server
 
 
+def _safe_next(form: dict, default: str = "/") -> str:
+    """Same-origin redirect target from a form post."""
+    candidate = (form.get("next") or [default])[0]
+    if not candidate.startswith("/") or candidate.startswith("//"):
+        return default
+    return candidate
+
+
 class _Handler(BaseHTTPRequestHandler):
     app: Assent
     actor: str
     profile: str = "cloud"
+    scope: str = "you"
     chats: dict
 
     def log_message(self, fmt, *args):  # quieter console
@@ -183,7 +209,7 @@ class _Handler(BaseHTTPRequestHandler):
         elif path in {"/approvals", "/ledger"}:
             self._send(render_app(
                 self.app, actor=self.actor, profile=self.profile, tool="approvals",
-                selected_id=selected,
+                selected_id=selected, scope=self.scope,
             ))
         elif path in {"/infra", "/overview"}:
             self._send(render_app(
@@ -240,10 +266,13 @@ class _Handler(BaseHTTPRequestHandler):
                 chosen = (form.get("actor") or ["you"])[0]
                 if chosen in PEOPLE:
                     type(self).actor = chosen
-                nxt = (form.get("next") or ["/"])[0]
-                if not nxt.startswith("/") or nxt.startswith("//"):
-                    nxt = "/"
-                self._redirect(nxt or "/")
+                self._redirect(_safe_next(form))
+                return
+            if path == "/scope":
+                chosen = (form.get("scope") or ["you"])[0]
+                if chosen in {"you", "team"}:
+                    type(self).scope = chosen
+                self._redirect(_safe_next(form, default="/approvals"))
                 return
             if path == "/ask":
                 question = (form.get("q") or [""])[0].strip()
@@ -275,7 +304,7 @@ def serve(
     handler = type(
         "Handler",
         (_Handler,),
-        {"app": app, "actor": actor, "profile": profile, "chats": {}},
+        {"app": app, "actor": actor, "profile": profile, "scope": "you", "chats": {}},
     )
     server = ThreadingHTTPServer((host, port), handler)
     print(f"Assent running at http://{host}:{port}  (acting as {actor}, profile={profile})")

@@ -48,10 +48,33 @@ def test_mission_dashboard_renders_chat_shell():
     assert "Alerts" in page
     assert "Approvals" in page
     assert "Infrastructure" in page
-    assert "Jordan" in page
     assert "Simulate alert" in page
     assert "Cloud · Personal" in page
-    assert "acting as" in page
+    # The desk you're sitting at shows a name plus a job title, never a bare id.
+    assert "Security Operations Lead" in page
+
+
+def test_agents_are_labelled_as_agents_people_get_job_titles():
+    app = demo_app()
+    record = next(r for r in app.queue() if r.change is not None)
+    page = render_change(app, record, actor="you", profile="cloud")
+    assert "tag-agent" in page              # agents carry the agent mark + tag
+    assert "Policy Engine" in page
+    assert "Ownership Resolver" in page
+    assert "Security Operations Lead" in page   # humans carry a job title
+    # An agent must never be given a human job title.
+    assert "Policy Engine</span><span class=\"tag tag-agent\">" in page.replace("\n", "")
+
+
+def test_scope_toggle_is_approvals_only():
+    from assent.dashboard import render_app
+
+    app = demo_app()
+    threads = render_app(app, actor="you", profile="cloud", tool="chat")
+    approvals = render_app(app, actor="you", profile="cloud", tool="approvals")
+    assert 'action="/scope"' not in threads
+    assert 'action="/scope"' in approvals
+    assert ">Team<" in approvals
 
 
 def test_private_profile_label():
@@ -80,15 +103,17 @@ def test_change_package_page():
     assert "Gated remediation" in page
 
 
-def test_approvals_split_you_vs_jordan():
+def test_approvals_scope_you_vs_team():
     from assent.dashboard import render_app
 
     app = demo_app()
-    you = render_app(app, actor="you", profile="cloud", tool="approvals")
-    jordan = render_app(app, actor="jordan", profile="cloud", tool="approvals")
-    assert "Desk of <strong>You</strong>" in you
-    assert "Desk of <strong>Jordan Hale</strong>" in jordan
-    assert "payments-api" in jordan or "payments-latency" in jordan
+    mine = render_app(app, actor="you", profile="cloud", tool="approvals", scope="you")
+    team = render_app(app, actor="you", profile="cloud", tool="approvals", scope="team")
+    assert "awaiting You" in mine
+    assert "awaiting the team" in team
+    # Team view surfaces other owners by name and job title; your own view does not.
+    assert "Jordan Hale" in team and "Payments Engineering Lead" in team
+    assert "Jordan Hale" not in mine
 
 
 def test_demo_inject_adds_signals():

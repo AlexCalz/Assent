@@ -1,8 +1,15 @@
-"""Assent shell — ChatGPT / Cursor desktop layout.
+"""Assent shell — desktop app layout.
 
-Left: alerts as conversation headers. Top: tools (Chat, Approvals, Infra) and a
-You / other-person toggle. Main: the selected tool. Infrastructure is a Packet
-Tracer-style diagram with agents pinned on the nodes they are working.
+Structure follows the conventions people already have muscle memory for
+(ChatGPT / Cursor / Linear): a collapsible thread rail on the left, a tool
+segment in the top bar, and one focused workspace.
+
+Two rules the visual system exists to serve:
+
+* An **agent** speaking is unmistakably an agent — agent mark, capability line,
+  never a job title.
+* A **person** speaking carries their name *and* their org job title, because
+  the product's whole claim is that a named, authoritative human assented.
 """
 
 from __future__ import annotations
@@ -12,6 +19,7 @@ import json
 from typing import Dict, List, Optional, Sequence
 from urllib.parse import quote
 
+from assent import identity as ident
 from assent.agents import roster_for
 from assent.approval_card import render_card
 from assent.package import build_package
@@ -36,31 +44,12 @@ PROFILES = {
     },
 }
 
-# Desk you can sit at. Toggle in the top middle switches whose inbox/audit you see.
-PEOPLE: Dict[str, dict] = {
-    "you": {
-        "id": "you",
-        "name": "You",
-        "short": "You",
-        "role": "SOC lead",
-        "systems": frozenset(),
-        "teams": frozenset({"soc"}),
-        "catch_all": True,
-    },
-    "jordan": {
-        "id": "jordan",
-        "name": "Jordan Hale",
-        "short": "Jordan",
-        "role": "Payments owner",
-        "systems": frozenset({"payments-api", "payments-latency"}),
-        "teams": frozenset({"team-payments"}),
-        "catch_all": False,
-    },
-}
+# Kept for the app's actor switching; identity data itself lives in identity.py.
+PEOPLE = ident.PEOPLE
 
 _STATE_LABEL = {
     ChangeState.NEEDS_TRIAGE: "needs triage",
-    ChangeState.PENDING_APPROVAL: "awaiting your approval",
+    ChangeState.PENDING_APPROVAL: "awaiting approval",
     ChangeState.ESCALATED: "escalated",
     ChangeState.AUTO_EXECUTED: "auto-executed",
     ChangeState.EXECUTED: "executed after approval",
@@ -76,353 +65,599 @@ _STATE_CONTROLS = {
 }
 
 TOOLS = (
-    ("chat", "Chat", "/"),
+    ("chat", "Threads", "/"),
     ("approvals", "Approvals", "/approvals"),
     ("infra", "Infrastructure", "/infra"),
 )
 
+_TOOL_ICON = {
+    "chat": '<svg viewBox="0 0 16 16" class="ico"><path d="M2.5 3.2h11v7.2H6.4L3.4 12.8v-2.4H2.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>',
+    "approvals": '<svg viewBox="0 0 16 16" class="ico"><path d="M3 8.4l3 3 7-7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    "infra": '<svg viewBox="0 0 16 16" class="ico"><path d="M8 2.4v3.4M4 13.6v-2.2h8v2.2M8 5.8v5.6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="5.6" y="1" width="4.8" height="2.8" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="2.2" y="12.6" width="3.6" height="2.6" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="10.2" y="12.6" width="3.6" height="2.6" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>',
+}
+
 
 DASH_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --bg: #ffffff;
-  --sidebar: #f7f7f4;
-  --sidebar-hover: #ecece6;
-  --ink: #152028;
-  --ink-soft: #4a5560;
-  --ink-faint: #7a858f;
-  --line: rgba(21,32,40,0.10);
-  --line-strong: rgba(21,32,40,0.16);
-  --brand: #0f5c57;
-  --brand-soft: #d7ebe8;
-  --auto: #1c7a4c; --auto-bg: #e3f3ea;
-  --route: #9a6410; --route-bg: #f7edd6;
-  --escalate: #a93636; --escalate-bg: #f6e3e3;
-  --sans: "Sora", ui-sans-serif, system-ui, sans-serif;
-  --display: "Fraunces", Georgia, serif;
-  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
-  --radius: 12px;
-  --shadow: 0 1px 0 rgba(21,32,40,0.04), 0 10px 28px rgba(21,32,40,0.06);
+  /* neutrals — one ramp, used consistently */
+  --n0: #ffffff;
+  --n1: #fbfbfa;
+  --n2: #f6f6f4;
+  --n3: #eeeeeb;
+  --n4: #e2e2de;
+  --n6: #9a9a94;
+  --n8: #56565230;
+  --ink: #17181a;
+  --ink-2: #52555a;
+  --ink-3: #86898f;
+  --line: #e6e6e2;
+  --line-2: #d8d8d3;
+
+  --accent: #0d5c56;
+  --accent-2: #e6f1ef;
+  --auto: #17714a; --auto-bg: #e8f3ec;
+  --route: #8a5a0f; --route-bg: #f8efdb;
+  --escalate: #a13232; --escalate-bg: #f8e6e6;
+
+  --sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --display: "Newsreader", Georgia, serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+  /* type scale */
+  --t-micro: 10.5px;
+  --t-meta: 11.5px;
+  --t-small: 12.5px;
+  --t-body: 13.5px;
+  --t-read: 15px;
+  --t-h3: 17px;
+  --t-h2: 21px;
+  --t-h1: 30px;
+
+  /* 4px spacing scale */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px;
+
+  --r-sm: 8px; --r-md: 10px; --r-lg: 14px; --r-xl: 18px;
+  --rail: 292px;
+  --ease: cubic-bezier(0.22, 0.75, 0.24, 1);
+  --shadow-1: 0 1px 2px rgba(23,24,26,0.05);
+  --shadow-2: 0 4px 16px rgba(23,24,26,0.07), 0 1px 2px rgba(23,24,26,0.05);
+  --shadow-3: 0 18px 48px rgba(23,24,26,0.11), 0 2px 6px rgba(23,24,26,0.06);
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body {
   font-family: var(--sans);
+  font-size: var(--t-body);
+  font-feature-settings: "cv11", "ss01";
   color: var(--ink);
-  background: var(--bg);
+  background: var(--n0);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
-a { color: inherit; }
-button, input, select, textarea { font: inherit; }
+a { color: inherit; text-decoration: none; }
+button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
+::selection { background: var(--accent-2); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 
+/* ---------------------------------------------------------------- shell */
 .shell {
   height: 100vh;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: var(--rail) minmax(0, 1fr);
+  transition: grid-template-columns 260ms var(--ease);
 }
+html[data-nav="collapsed"] .shell { grid-template-columns: 0px minmax(0, 1fr); }
 
-/* ----- sidebar (ChatGPT-style conversation list) ----- */
-.sidebar {
-  background: var(--sidebar);
+.rail {
+  background: var(--n2);
   border-right: 1px solid var(--line);
   display: flex; flex-direction: column;
-  min-height: 0;
+  min-height: 0; overflow: hidden;
 }
-.side-top {
-  padding: 12px 12px 8px;
-  display: flex; flex-direction: column; gap: 8px;
+.rail-inner {
+  width: var(--rail); min-width: var(--rail);
+  display: flex; flex-direction: column; min-height: 0; height: 100%;
+  opacity: 1; transform: translateX(0);
+  transition: opacity 180ms var(--ease), transform 260ms var(--ease);
 }
-.brand-mini {
-  font-family: var(--display); font-weight: 700; font-size: 22px;
-  letter-spacing: -0.03em; padding: 4px 8px 2px;
+html[data-nav="collapsed"] .rail-inner { opacity: 0; transform: translateX(-12px); }
+
+.rail-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--s2); padding: var(--s3) var(--s3) var(--s2) var(--s4);
 }
+.wordmark {
+  display: flex; align-items: center; gap: var(--s2);
+  font-family: var(--display); font-size: var(--t-h2); letter-spacing: -0.015em;
+  line-height: 1;
+}
+.wordmark .dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-2);
+}
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: var(--r-sm);
+  border: 1px solid transparent; background: transparent; color: var(--ink-3);
+  transition: background 140ms var(--ease), color 140ms var(--ease);
+}
+.icon-btn:hover { background: var(--n3); color: var(--ink); }
+.icon-btn svg { width: 16px; height: 16px; }
+
+.rail-actions { padding: 0 var(--s3) var(--s3); }
 .new-btn {
-  display: flex; align-items: center; gap: 8px;
-  width: 100%; border: 1px solid var(--line-strong); background: #fff;
-  border-radius: 10px; padding: 9px 12px; font-weight: 600; font-size: 13px;
-  color: var(--ink);
+  display: flex; align-items: center; justify-content: center; gap: var(--s2);
+  width: 100%; border: 1px solid var(--line-2); background: var(--n0);
+  border-radius: var(--r-md); padding: 9px var(--s3);
+  font-weight: 550; font-size: var(--t-small); color: var(--ink);
+  box-shadow: var(--shadow-1);
+  transition: border-color 140ms var(--ease), box-shadow 140ms var(--ease), transform 140ms var(--ease);
 }
-.new-btn:hover { border-color: var(--brand); }
-.side-label {
-  font-size: 11px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--ink-faint); padding: 8px 16px 4px;
+.new-btn:hover { border-color: var(--accent); box-shadow: var(--shadow-2); transform: translateY(-1px); }
+.new-btn svg { width: 14px; height: 14px; }
+
+.rail-label {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: var(--t-micro); font-weight: 600; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--ink-3);
+  padding: var(--s2) var(--s4) var(--s1);
 }
-.chats {
-  flex: 1; overflow: auto; padding: 4px 8px 16px;
-  display: flex; flex-direction: column; gap: 2px;
+.rail-label .count { letter-spacing: 0; font-weight: 500; }
+.threads {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: var(--s1) var(--s2) var(--s5);
+  display: flex; flex-direction: column; gap: 1px;
+  scrollbar-width: thin;
 }
-.chat-row {
-  display: grid; grid-template-columns: 8px 1fr; gap: 8px; align-items: start;
-  padding: 10px 10px; border-radius: 10px; text-decoration: none;
+.threads::-webkit-scrollbar { width: 8px; }
+.threads::-webkit-scrollbar-thumb { background: var(--n4); border-radius: 8px; }
+
+.thread-row {
+  display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: var(--s2);
+  align-items: start; padding: 9px 10px; border-radius: var(--r-md);
+  transition: background 140ms var(--ease);
+  position: relative;
 }
-.chat-row:hover { background: var(--sidebar-hover); }
-.chat-row.on { background: #fff; box-shadow: 0 0 0 1px var(--line); }
-.chat-row .pip {
-  width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; background: #c5cdc8;
+.thread-row:hover { background: var(--n3); }
+.thread-row.on { background: var(--n0); box-shadow: var(--shadow-1), 0 0 0 1px var(--line); }
+.thread-row .state {
+  width: 7px; height: 7px; border-radius: 50%; margin: 5px 0 0 3px;
+  background: var(--n4); flex: none;
 }
-.chat-row.open .pip { background: var(--route); }
-.chat-row.escalated .pip { background: var(--escalate); }
-.chat-row.auto .pip { background: var(--auto); }
-.chat-row .t {
-  font-size: 13.5px; font-weight: 600; line-height: 1.3;
+.thread-row.open .state { background: var(--route); }
+.thread-row.escalated .state {
+  background: var(--escalate);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--escalate) 16%, transparent);
+}
+.thread-row.auto .state { background: var(--auto); }
+.thread-row .t, .thread-row .p {
+  display: block; min-width: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.chat-row .p {
-  font-size: 12px; color: var(--ink-faint); margin-top: 2px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.thread-row .t {
+  font-size: var(--t-body); font-weight: 550; line-height: 1.35; letter-spacing: -0.005em;
+}
+.thread-row .p {
+  font-size: var(--t-meta); color: var(--ink-3); margin-top: 2px; line-height: 1.4;
 }
 
-/* ----- main column ----- */
-.maincol { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); }
+/* ---------------------------------------------------------------- main */
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 
 .topbar {
-  height: 56px; flex: 0 0 56px;
+  height: 52px; flex: 0 0 52px;
   display: grid; grid-template-columns: 1fr auto 1fr;
-  align-items: center; gap: 12px;
-  padding: 0 16px;
+  align-items: center; gap: var(--s3);
+  padding: 0 var(--s4);
   border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--n0) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
 }
-.tools { display: flex; gap: 4px; align-items: center; }
-.tool {
-  text-decoration: none; font-size: 13px; font-weight: 600;
-  padding: 7px 12px; border-radius: 999px; color: var(--ink-soft);
-  border: 1px solid transparent;
+.top-left { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
+.reveal { display: none; }
+html[data-nav="collapsed"] .reveal { display: inline-flex; }
+html[data-nav="collapsed"] .top-left .crumb-word { display: inline; }
+.crumb-word {
+  display: none; font-family: var(--display); font-size: var(--t-h3); letter-spacing: -0.01em;
 }
-.tool:hover { background: var(--sidebar); color: var(--ink); }
-.tool.on { background: var(--ink); color: #f4fffc; }
-.who-toggle {
-  display: inline-flex; background: var(--sidebar); border: 1px solid var(--line);
-  border-radius: 999px; padding: 3px;
+.crumb {
+  font-size: var(--t-small); color: var(--ink-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.who-toggle button {
-  appearance: none; border: 0; background: transparent;
-  padding: 6px 14px; border-radius: 999px;
-  font-size: 13px; font-weight: 600; color: var(--ink-soft);
+.crumb strong { color: var(--ink-2); font-weight: 550; }
+
+.segment {
+  display: inline-flex; padding: 3px; gap: 2px;
+  background: var(--n2); border: 1px solid var(--line); border-radius: 999px;
 }
-.who-toggle button.on { background: #fff; color: var(--ink); box-shadow: var(--shadow); }
-.top-right {
-  display: flex; justify-content: flex-end; align-items: center; gap: 8px;
+.segment a, .segment button {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: var(--t-small); font-weight: 550; letter-spacing: -0.005em;
+  padding: 6px 13px; border-radius: 999px; color: var(--ink-2);
+  border: 1px solid transparent; background: transparent;
+  transition: background 150ms var(--ease), color 150ms var(--ease), box-shadow 150ms var(--ease);
 }
-.top-right .who { font-size: 12px; color: var(--ink-faint); }
-.top-right .who strong { color: var(--ink); }
+.segment a:hover, .segment button:hover { color: var(--ink); }
+.segment a.on, .segment button.on {
+  background: var(--n0); color: var(--ink);
+  box-shadow: var(--shadow-1), 0 0 0 1px var(--line);
+}
+.segment .ico { width: 14px; height: 14px; }
+
+.top-right { display: flex; align-items: center; justify-content: flex-end; gap: var(--s3); }
 select.profile {
   border: 1px solid var(--line); border-radius: 999px;
-  padding: 6px 10px; background: #fff; color: var(--ink-soft);
-  font-size: 12px; max-width: 190px;
+  padding: 6px 10px; background: var(--n0); color: var(--ink-2);
+  font-size: var(--t-meta); max-width: 178px;
+  transition: border-color 140ms var(--ease);
 }
+select.profile:hover { border-color: var(--line-2); }
 
-.workspace { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-
-/* chat thread */
-.thread {
-  flex: 1; overflow: auto; padding: 28px 0 12px;
-}
-.thread-inner { max-width: 760px; margin: 0 auto; padding: 0 24px 40px; }
-.msg { display: grid; grid-template-columns: 36px 1fr; gap: 14px; margin: 0 0 22px; }
-.msg.user { grid-template-columns: 1fr 36px; }
-.msg.user .bubble { order: -1; background: var(--sidebar); }
+/* ---------------------------------------------------------------- identity */
+.identity { display: inline-flex; align-items: center; gap: var(--s2); min-width: 0; }
 .avatar {
-  width: 36px; height: 36px; border-radius: 10px;
-  display: grid; place-items: center;
-  font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
-  background: var(--brand-soft); color: var(--brand);
+  width: 30px; height: 30px; border-radius: 9px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: var(--t-micro); font-weight: 650; letter-spacing: 0.02em;
 }
-.avatar.sensor { background: #edf0f2; color: var(--ink-soft); }
-.avatar.policy { background: var(--ink); color: #f4fffc; }
-.avatar.audit { background: var(--route-bg); color: var(--route); }
-.avatar.user { background: var(--ink); color: #fff; }
-.bubble .from { font-size: 12px; font-weight: 650; margin-bottom: 4px; }
-.bubble .from span { font-weight: 500; color: var(--ink-faint); margin-left: 6px; }
-.bubble p { margin: 0; font-size: 14.5px; line-height: 1.55; color: var(--ink); }
-.bubble ul { margin: 8px 0 0; padding-left: 18px; color: var(--ink-soft); font-size: 13.5px; }
-.facts {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px;
+.avatar-person { background: var(--ink); color: var(--n0); }
+.avatar-agent { background: var(--accent-2); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); }
+.avatar-sensor { background: var(--n3); color: var(--ink-3); }
+.avatar .mark-glyph { width: 17px; height: 17px; }
+.avatar.sm { width: 22px; height: 22px; border-radius: 7px; font-size: 9.5px; }
+.avatar.sm .mark-glyph { width: 13px; height: 13px; }
+
+.byline { display: inline-flex; align-items: baseline; gap: 7px; flex-wrap: wrap; min-width: 0; }
+.byline-name { font-size: var(--t-body); font-weight: 600; letter-spacing: -0.008em; }
+.byline-sub { font-size: var(--t-meta); color: var(--ink-3); }
+.byline-meta { font-size: var(--t-micro); color: var(--ink-3); font-family: var(--mono); }
+.byline.stack { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+
+.tag {
+  font-size: 9.5px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 5px; line-height: 1.5;
 }
-.fact { background: var(--sidebar); border-radius: 10px; padding: 10px 12px; }
-.fact .k { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
-.fact .v { font-size: 13.5px; font-weight: 600; margin-top: 3px; }
-.composer {
-  border-top: 1px solid var(--line); padding: 12px 24px 20px;
+.tag-agent { background: var(--accent-2); color: var(--accent); }
+.tag-sensor { background: var(--n3); color: var(--ink-3); }
+.tag-you { background: var(--ink); color: var(--n0); }
+
+/* ---------------------------------------------------------------- thread */
+.thread-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.thread-head {
+  border-bottom: 1px solid var(--line);
+  padding: var(--s5) var(--s5) var(--s4);
 }
+.thread-head-inner { max-width: 780px; margin: 0 auto; }
+.thread-head h1 {
+  font-family: var(--display); font-size: var(--t-h1); font-weight: 400;
+  letter-spacing: -0.02em; line-height: 1.15; margin: var(--s2) 0 6px;
+}
+.thread-head .sub {
+  display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
+  font-size: var(--t-small); color: var(--ink-3);
+}
+.thread-head .sub code { font-family: var(--mono); font-size: var(--t-meta); }
+
+.scroll { flex: 1; overflow-y: auto; }
+.scroll-inner { max-width: 780px; margin: 0 auto; padding: var(--s5) var(--s5) var(--s7); }
+
+.msg {
+  padding: 0 0 var(--s5);
+  animation: rise 420ms var(--ease) both;
+}
+.msg:nth-child(1) { animation-delay: 20ms; }
+.msg:nth-child(2) { animation-delay: 60ms; }
+.msg:nth-child(3) { animation-delay: 100ms; }
+.msg:nth-child(4) { animation-delay: 140ms; }
+.msg:nth-child(5) { animation-delay: 180ms; }
+.msg:nth-child(n+6) { animation-delay: 220ms; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .msg { animation: none; }
+  .shell, .rail-inner { transition: none; }
+}
+
+.msg-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.msg-body { padding-left: 38px; margin-top: 6px; }
+.msg-body p { margin: 0 0 var(--s2); font-size: var(--t-read); line-height: 1.6; color: var(--ink); }
+.msg-body p:last-child { margin-bottom: 0; }
+.msg-body .quiet { color: var(--ink-2); font-size: var(--t-body); }
+.msg-body ul { margin: var(--s2) 0 0; padding-left: 18px; }
+.msg-body li { font-size: var(--t-body); color: var(--ink-2); line-height: 1.6; margin-bottom: 3px; }
+.msg-body code { font-family: var(--mono); font-size: 12.5px; background: var(--n2); padding: 1px 5px; border-radius: 5px; }
+
+.msg.mine .msg-body {
+  padding-left: 0; margin-left: 38px;
+  background: var(--n2); border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: var(--s3) var(--s4);
+}
+
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: var(--s2); margin-top: var(--s3); }
+.fact {
+  background: var(--n2); border: 1px solid var(--line);
+  border-radius: var(--r-md); padding: 9px 11px;
+}
+.fact .k {
+  font-size: var(--t-micro); letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 600;
+}
+.fact .v { font-size: var(--t-body); font-weight: 550; margin-top: 3px; line-height: 1.4; }
+
+.composer { border-top: 1px solid var(--line); padding: var(--s3) var(--s5) var(--s5); background: var(--n0); }
 .composer-box {
-  max-width: 760px; margin: 0 auto;
-  display: flex; gap: 8px; align-items: flex-end;
-  border: 1px solid var(--line-strong); border-radius: 16px;
-  padding: 8px 8px 8px 16px; background: #fff;
-  box-shadow: var(--shadow);
+  max-width: 780px; margin: 0 auto;
+  display: flex; gap: var(--s2); align-items: flex-end;
+  border: 1px solid var(--line-2); border-radius: var(--r-xl);
+  padding: var(--s2) var(--s2) var(--s2) var(--s4); background: var(--n0);
+  box-shadow: var(--shadow-2);
+  transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease);
 }
+.composer-box:focus-within { border-color: var(--accent); box-shadow: var(--shadow-3); }
 .composer-box textarea {
-  flex: 1; border: 0; resize: none; outline: none;
-  min-height: 24px; max-height: 120px; padding: 8px 0;
-  font-size: 14.5px;
+  flex: 1; border: 0; resize: none; outline: none; background: transparent;
+  min-height: 24px; max-height: 140px; padding: 7px 0; font-size: var(--t-read); line-height: 1.5;
 }
 .composer-box button {
-  border: 0; background: var(--ink); color: #fff;
-  border-radius: 10px; padding: 8px 14px; font-weight: 650; font-size: 13px;
+  border: 0; background: var(--ink); color: var(--n0);
+  border-radius: var(--r-md); padding: 8px 14px; font-weight: 600; font-size: var(--t-small);
+  transition: transform 140ms var(--ease), opacity 140ms var(--ease);
 }
+.composer-box button:hover { transform: translateY(-1px); opacity: 0.92; }
+.composer-hint { max-width: 780px; margin: 6px auto 0; font-size: var(--t-micro); color: var(--ink-3); }
 
-/* approvals */
-.page { flex: 1; overflow: auto; padding: 24px 28px 48px; }
+/* ---------------------------------------------------------------- pages */
+.page { flex: 1; overflow-y: auto; }
+.page-inner { max-width: 1180px; margin: 0 auto; padding: var(--s5) var(--s5) var(--s7); }
+.page-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: var(--s4); flex-wrap: wrap; margin-bottom: var(--s5);
+}
 .page h1 {
-  font-family: var(--display); font-size: 28px; margin: 0 0 4px; letter-spacing: -0.03em;
+  font-family: var(--display); font-size: var(--t-h1); font-weight: 400;
+  letter-spacing: -0.02em; margin: 0 0 6px; line-height: 1.1;
 }
-.lede { margin: 0 0 22px; color: var(--ink-soft); font-size: 14px; max-width: 62ch; }
-.section-h {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
-  margin: 8px 0 12px;
+.lede { margin: 0; color: var(--ink-2); font-size: var(--t-read); line-height: 1.55; max-width: 66ch; }
+
+.stats { display: flex; gap: var(--s5); flex-wrap: wrap; margin-bottom: var(--s5); }
+.stat .n {
+  font-size: 26px; font-weight: 600; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums; line-height: 1.1;
 }
-.section-h h2 { margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
-.cards { display: flex; flex-direction: column; gap: 10px; }
+.stat .l { font-size: var(--t-meta); color: var(--ink-3); margin-top: 2px; }
+.stat.route .n { color: var(--route); }
+.stat.auto .n { color: var(--auto); }
+
+.subhead {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--s3); margin: var(--s6) 0 var(--s3);
+  padding-bottom: var(--s2); border-bottom: 1px solid var(--line);
+}
+.subhead:first-of-type { margin-top: 0; }
+.subhead h2 {
+  margin: 0; font-size: var(--t-meta); font-weight: 600;
+  letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3);
+}
+.subhead .note { font-size: var(--t-meta); color: var(--ink-3); }
+
+.cards { display: flex; flex-direction: column; gap: var(--s3); }
 .acard {
-  border: 1px solid var(--line); border-radius: 14px; padding: 16px 16px 14px;
-  background: #fff; text-decoration: none; color: inherit;
+  border: 1px solid var(--line); border-radius: var(--r-lg);
+  background: var(--n0); box-shadow: var(--shadow-1);
+  transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease), transform 160ms var(--ease);
 }
-.acard:hover { border-color: var(--brand); }
-.acard .row { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
-.acard .t { font-size: 16px; font-weight: 650; }
-.acard .m { font-size: 12.5px; color: var(--ink-faint); font-family: var(--mono); margin-top: 4px; }
-.detail-grid {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px;
+.acard:hover { border-color: var(--line-2); box-shadow: var(--shadow-2); transform: translateY(-1px); }
+.acard-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--s4); padding: var(--s4);
 }
-.detail-grid .fact { background: var(--sidebar); }
-.audit-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.audit-table th {
-  text-align: left; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--ink-faint); font-weight: 650; padding: 8px 10px; border-bottom: 1px solid var(--line);
+.acard-title { font-size: var(--t-h3); font-weight: 600; letter-spacing: -0.012em; }
+.acard-cmd { font-family: var(--mono); font-size: var(--t-meta); color: var(--ink-3); margin-top: 4px; }
+.acard-meta { display: flex; gap: var(--s5); padding: 0 var(--s4) var(--s4); flex-wrap: wrap; }
+.mini { min-width: 96px; }
+.mini .k {
+  font-size: var(--t-micro); letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 600;
 }
-.audit-table td { padding: 12px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
-.audit-table .why { color: var(--ink-soft); font-size: 12.5px; max-width: 28ch; }
-.audit-table code { font-family: var(--mono); font-size: 12px; }
-.chain { font-size: 12.5px; margin-top: 14px; color: var(--ink-faint); }
-.chain.ok { color: var(--auto); }
-.chain.bad { color: var(--escalate); }
+.mini .v { font-size: var(--t-body); font-weight: 550; margin-top: 2px; }
+.acard-body { border-top: 1px solid var(--line); padding: var(--s4); background: var(--n1); border-radius: 0 0 var(--r-lg) var(--r-lg); }
+
+.tbl-wrap { border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; background: var(--n0); }
+table.tbl { width: 100%; border-collapse: collapse; }
+table.tbl th {
+  text-align: left; font-size: var(--t-micro); font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3);
+  padding: 11px var(--s4); background: var(--n2); border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+table.tbl td { padding: var(--s3) var(--s4); border-bottom: 1px solid var(--line); vertical-align: top; font-size: var(--t-small); }
+table.tbl tr:last-child td { border-bottom: 0; }
+table.tbl tbody tr { transition: background 130ms var(--ease); }
+table.tbl tbody tr:hover { background: var(--n1); }
+table.tbl .strong { font-weight: 600; font-size: var(--t-body); white-space: nowrap; }
+table.tbl td:nth-child(1) { min-width: 150px; }
+table.tbl td:nth-child(4) { min-width: 190px; }
+table.tbl code { font-family: var(--mono); font-size: var(--t-meta); }
+table.tbl .why { color: var(--ink-2); max-width: 30ch; line-height: 1.5; }
+.num { font-variant-numeric: tabular-nums; }
+
+.footnote { margin-top: var(--s3); font-size: var(--t-meta); color: var(--ink-3); display: flex; align-items: center; gap: 6px; }
+.footnote.ok { color: var(--auto); }
+.footnote.bad { color: var(--escalate); }
 
 .empty {
-  padding: 28px 18px; text-align: center; color: var(--ink-faint);
-  border: 1px dashed var(--line-strong); border-radius: 12px; font-size: 13.5px;
+  padding: var(--s6) var(--s4); text-align: center; color: var(--ink-3);
+  border: 1px dashed var(--line-2); border-radius: var(--r-lg); font-size: var(--t-body);
+  background: var(--n1);
 }
 
 .pill {
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
-  padding: 4px 8px; border-radius: 999px; white-space: nowrap;
+  font-size: 9.5px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 6px; white-space: nowrap; line-height: 1.6;
 }
 .pill-auto { background: var(--auto-bg); color: var(--auto); }
 .pill-route { background: var(--route-bg); color: var(--route); }
 .pill-escalate { background: var(--escalate-bg); color: var(--escalate); }
-.pill-triage { background: #edf0f2; color: var(--ink-faint); }
+.pill-triage { background: var(--n3); color: var(--ink-3); }
 
 .btn {
-  appearance: none; border: 1px solid var(--line-strong); border-radius: 10px;
-  padding: 8px 12px; background: #fff; color: var(--ink);
-  font-weight: 600; font-size: 13px; text-decoration: none;
+  appearance: none; border: 1px solid var(--line-2); border-radius: var(--r-md);
+  padding: 8px 13px; background: var(--n0); color: var(--ink);
+  font-weight: 550; font-size: var(--t-small);
   display: inline-flex; align-items: center; gap: 6px;
+  transition: border-color 140ms var(--ease), transform 140ms var(--ease), box-shadow 140ms var(--ease);
 }
-.btn-primary { background: var(--brand); color: #f4fffc; border-color: transparent; }
+.btn:hover { border-color: var(--ink-3); transform: translateY(-1px); box-shadow: var(--shadow-1); }
+.btn-primary { background: var(--accent); color: #f2fbf9; border-color: transparent; }
+.btn-primary:hover { border-color: transparent; }
 .btn-secondary { background: transparent; }
 
-/* approval card reuse */
-.remediation .card { margin: 12px 0 0; box-shadow: none; max-width: none; }
-.card {
-  background: #fff; border: 1px solid var(--line);
-  border-radius: 14px; padding: 16px; border-left: 3px solid var(--line-strong);
-}
+/* approval card primitives */
+.card { background: var(--n0); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s4); border-left: 2px solid var(--line-2); }
 .card.tone-auto { border-left-color: var(--auto); }
 .card.tone-route { border-left-color: var(--route); }
 .card.tone-escalate { border-left-color: var(--escalate); }
-.card-head .action-type { margin: 8px 0 2px; font-size: 18px; letter-spacing: -0.02em; }
-.card-head .stance { margin: 0; color: var(--ink-soft); font-size: 13px; }
+.card-head .action-type { margin: var(--s2) 0 2px; font-size: var(--t-h3); letter-spacing: -0.015em; }
+.card-head .stance { margin: 0; color: var(--ink-2); font-size: var(--t-small); line-height: 1.5; }
 .verdict { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.badge { font-size: 10.5px; font-weight: 700; padding: 3px 7px; border-radius: 999px; background: var(--sidebar); color: var(--ink-faint); }
+.badge { font-size: 9.5px; font-weight: 650; padding: 3px 7px; border-radius: 6px; background: var(--n2); color: var(--ink-3); letter-spacing: 0.06em; text-transform: uppercase; }
 .badge-tier0 { background: var(--escalate-bg); color: var(--escalate); }
-.rec-id { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.rec-id { font-family: var(--mono); font-size: var(--t-micro); color: var(--ink-3); }
 .command {
-  margin: 12px 0; padding: 10px 12px; border-radius: 10px; background: #152028; color: #e7f2ee;
-  font-family: var(--mono); font-size: 12.5px;
+  margin: var(--s3) 0; padding: 11px var(--s3); border-radius: var(--r-md);
+  background: #16181b; color: #e8f1ee; font-family: var(--mono); font-size: var(--t-small);
+  overflow-x: auto;
 }
-.command-label { display: block; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #8aa39a; margin-bottom: 4px; }
-.command .arrow { opacity: 0.6; }
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
-.field { background: var(--sidebar); border-radius: 9px; padding: 8px 10px; }
-.field-label { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
-.field-value { font-size: 13px; font-weight: 600; margin-top: 2px; }
-.field-value.mono { font-family: var(--mono); font-weight: 500; font-size: 12px; }
+.command-label { display: block; font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8ba49b; margin-bottom: 5px; }
+.command .arrow { opacity: 0.55; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); margin: var(--s3) 0; }
+.field { background: var(--n2); border-radius: var(--r-sm); padding: 8px 10px; }
+.field-label { font-size: var(--t-micro); letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.field-value { font-size: var(--t-body); font-weight: 550; margin-top: 2px; }
+.field-value.mono { font-family: var(--mono); font-weight: 400; font-size: var(--t-small); }
 .tone-auto { color: var(--auto); }
 .tone-route { color: var(--route); }
 .tone-escalate { color: var(--escalate); }
-.block { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
-.block-label { font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; margin-bottom: 4px; }
-.block-body { margin: 0; font-size: 13px; color: var(--ink-soft); }
-.block-body.mono { font-family: var(--mono); font-size: 12px; }
-.audit-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
-.audit-conf { font-size: 12.5px; color: var(--ink-soft); }
-.reasons { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--ink-soft); }
-.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.block { margin-top: var(--s3); padding-top: var(--s3); border-top: 1px solid var(--line); }
+.block-label { font-size: var(--t-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; margin-bottom: 5px; }
+.block-body { margin: 0; font-size: var(--t-small); color: var(--ink-2); line-height: 1.55; }
+.block-body.mono { font-family: var(--mono); font-size: var(--t-meta); }
+.audit-row { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+.audit-conf { font-size: var(--t-small); color: var(--ink-2); }
+.reasons { margin: 0; padding-left: 17px; font-size: var(--t-small); color: var(--ink-2); line-height: 1.6; }
+.actions { display: flex; gap: var(--s2); flex-wrap: wrap; margin-top: var(--s4); }
 .btn-primary.tone-auto { background: var(--auto); }
 .btn-primary.tone-route { background: var(--route); }
 .btn-primary.tone-escalate { background: var(--escalate); }
 
-/* packet tracer */
-.pt-wrap {
-  flex: 1; min-height: 0; display: flex; flex-direction: column;
-  background: #eceae2; padding: 12px 16px 16px;
+details.trace { margin-top: var(--s3); }
+details.trace summary {
+  cursor: pointer; font-size: var(--t-micro); letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ink-3); font-weight: 600;
+  list-style: none; display: flex; align-items: center; gap: 6px;
 }
-.pt-head { max-width: 1100px; margin: 0 auto 8px; width: 100%; }
-.pt-head h1 { font-size: 22px; margin: 0; }
+details.trace summary::-webkit-details-marker { display: none; }
+details.trace summary::before {
+  content: "▸"; font-size: 10px; transition: transform 160ms var(--ease);
+}
+details.trace[open] summary::before { transform: rotate(90deg); }
+details.trace pre {
+  margin: var(--s2) 0 0; padding: var(--s3); border-radius: var(--r-md);
+  background: var(--n2); border: 1px solid var(--line);
+  font-family: var(--mono); font-size: var(--t-meta); line-height: 1.55;
+  max-height: 260px; overflow: auto; color: var(--ink-2);
+}
+
+/* ---------------------------------------------------------------- infra */
+.infra { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
+.infra-inner { max-width: 1180px; width: 100%; margin: 0 auto; padding: var(--s5) var(--s5) var(--s6); }
+.roster { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--s2); margin: var(--s4) 0; }
+.roster-item {
+  display: flex; align-items: center; gap: var(--s2);
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  padding: 10px var(--s3); background: var(--n0);
+}
+.roster-item .status-dot { width: 6px; height: 6px; border-radius: 50%; margin-left: auto; flex: none; }
+.dot-working { background: var(--route); animation: blink 2.2s ease-in-out infinite; }
+.dot-blocked { background: var(--escalate); animation: blink 1.6s ease-in-out infinite; }
+.dot-complete { background: var(--auto); }
+.dot-idle { background: var(--n4); }
+@keyframes blink { 50% { opacity: 0.35; } }
+.roster-item .detail { font-size: var(--t-micro); color: var(--ink-3); margin-top: 1px; }
+
+.pt-wrap { margin-top: var(--s2); }
 .pt-canvas {
-  width: 100%; height: auto; max-height: calc(100vh - 140px);
-  border: 1px solid var(--line); border-radius: 12px; background: #f3f1ea;
+  width: 100%; height: auto;
+  border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--n1);
+  box-shadow: var(--shadow-1);
 }
-.pt-zone-label { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; fill: #7a858f; }
-.pt-link { stroke: #8a959c; stroke-width: 2; }
-.pt-link.hot { stroke: #0f5c57; stroke-width: 2.4; }
-.pt-label { font-size: 11px; font-weight: 650; fill: #152028; font-family: var(--sans); }
-.pt-meta { font-size: 9.5px; fill: #7a858f; font-family: var(--mono); }
-.pt-node { cursor: pointer; }
-.pt-node.on .pt-label { fill: #0f5c57; }
-.agent-pin circle, .agent-pin { fill: #0f5c57; }
-.agent-pin text { font-size: 9px; font-weight: 700; fill: #f4fffc; font-family: var(--sans); }
-.agent-pin.pin-working circle, circle.pin-working { fill: #9a6410; }
-.agent-pin.pin-blocked circle, circle.pin-blocked { fill: #a93636; }
-.agent-pin.pin-complete circle, circle.pin-complete { fill: #1c7a4c; }
-.pt-legend text { font-size: 11px; fill: #4a5560; font-family: var(--sans); }
+.pt-zone-label { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; fill: #9a9a94; font-family: var(--sans); }
+.pt-link { stroke: #c9c9c3; stroke-width: 1.6; }
+.pt-link.hot { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 5 4; animation: flow 900ms linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -18; } }
+.pt-label { font-size: 10.5px; font-weight: 600; fill: #17181a; font-family: var(--sans); letter-spacing: -0.005em; }
+.pt-meta { font-size: 9px; fill: #9a9a94; font-family: var(--mono); }
+.pt-node { cursor: pointer; transition: opacity 160ms var(--ease); }
+.pt-node:hover { opacity: 0.72; }
+.pt-node.on .pt-label { fill: var(--accent); }
+.agent-pin circle { fill: var(--accent); }
+.agent-pin text { font-size: 8.5px; font-weight: 700; fill: #f2fbf9; font-family: var(--sans); }
+.agent-pin.pin-working circle, circle.pin-working { fill: #8a5a0f; }
+.agent-pin.pin-blocked circle, circle.pin-blocked { fill: #a13232; }
+.agent-pin.pin-complete circle, circle.pin-complete { fill: #17714a; }
+.pt-legend text { font-size: 10px; fill: #56565a; font-family: var(--sans); }
+.pt-legend .legend-pin { fill: var(--accent); }
+.pt-legend .legend-letter { font-size: 8.5px; font-weight: 700; fill: #f2fbf9; }
 
-.muted { color: var(--ink-faint); }
-.chip { display: inline-flex; gap: 8px; padding: 6px 8px; border-radius: 8px; background: var(--sidebar); font-size: 12.5px; margin: 2px 4px 2px 0; }
-.chip code { font-family: var(--mono); color: var(--brand); }
+.muted { color: var(--ink-3); }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px;
+  border-radius: 6px; background: var(--n2); border: 1px solid var(--line);
+  font-size: var(--t-meta); margin: 2px 4px 2px 0; color: var(--ink-2);
+}
+.chip code { font-family: var(--mono); color: var(--accent); font-size: var(--t-micro); }
 
-@media (max-width: 860px) {
-  .shell { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
-  .topbar { grid-template-columns: 1fr; height: auto; padding: 10px 12px; }
-  .facts, .detail-grid { grid-template-columns: 1fr 1fr; }
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 0 1fr; }
+  .rail { display: none; }
+  .topbar { grid-template-columns: auto 1fr auto; }
+  .facts { grid-template-columns: 1fr 1fr; }
 }
 """
 
+_NAV_SCRIPT = """
+(function () {
+  var root = document.documentElement;
+  try {
+    if (localStorage.getItem('assent-nav') === 'collapsed') root.dataset.nav = 'collapsed';
+  } catch (e) {}
+  window.assentToggleNav = function () {
+    var next = root.dataset.nav === 'collapsed' ? 'open' : 'collapsed';
+    root.dataset.nav = next;
+    try { localStorage.setItem('assent-nav', next); } catch (e) {}
+  };
+})();
+"""
 
-def _person(actor: str) -> dict:
-    if actor in PEOPLE:
-        return PEOPLE[actor]
-    # Unknown actor (tests pass "alex") sits at the You desk under that name.
-    you = dict(PEOPLE["you"])
-    you["id"] = actor
-    you["name"] = actor
-    you["short"] = actor
-    return you
+_ICON_PANEL = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M6.2 2.8v10.4" stroke="currentColor" stroke-width="1.3"/></svg>'
+_ICON_PLUS = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.4v9.2M3.4 8h9.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+
+
+# --------------------------------------------------------------------- helpers
 
 
 def _pill_for(record: ChangeRecord) -> str:
     if record.decision is None or record.state is ChangeState.NEEDS_TRIAGE:
         return '<span class="pill pill-triage">triage</span>'
-    tone = {"auto": "auto", "route_to_owner": "route", "escalate": "escalate"}.get(
+    key = {"auto": "auto", "route_to_owner": "route", "escalate": "escalate"}.get(
         record.decision.value, "triage"
     )
-    label = {"auto": "auto", "route_to_owner": "route", "escalate": "escalate"}.get(
-        record.decision.value, "triage"
-    )
-    return f'<span class="pill pill-{tone}">{label}</span>'
+    label = {"auto": "auto", "route": "needs owner", "escalate": "escalated"}[key] if key != "auto" else "auto"
+    return f'<span class="pill pill-{key}">{label}</span>'
 
 
 def _row_class(record: ChangeRecord) -> str:
@@ -435,61 +670,67 @@ def _row_class(record: ChangeRecord) -> str:
     return ""
 
 
+def _titlecase_action(raw: str) -> str:
+    return raw.replace("_", " ").strip().capitalize()
+
+
 def _alert_title(record: ChangeRecord) -> str:
     if record.change is not None:
-        return f"{record.change.action.type.replace('_', ' ')} on {record.change.action.target}"
-    return f"{record.signal.kind.replace('_', ' ')} on {record.signal.target}"
+        return f"{_titlecase_action(record.change.action.type)} · {record.change.action.target}"
+    return f"{_titlecase_action(record.signal.kind)} · {record.signal.target}"
 
 
 def _alert_preview(record: ChangeRecord) -> str:
     return record.signal.summary or f"{record.signal.source} · {record.id}"
 
 
-def _inbox_for(app: Assent, person: dict) -> List[ChangeRecord]:
-    """Approvals waiting on the person currently sitting at the desk."""
+def _assignee_for(record: ChangeRecord):
+    """Which human this change is routed to.
+
+    An escalation is by definition *broadened* past the stack owner, so it lands
+    on the security lead rather than the team that happens to own the target.
+    """
+    if record.change is None or record.state is ChangeState.ESCALATED:
+        return ident.person("you")
+    owner_id = record.change.owner.id
+    for pid, team in ident.TEAM_OF.items():
+        if team == owner_id:
+            return ident.person(pid)
+    for pid, systems in ident.SYSTEMS_OF.items():
+        if record.signal.target in systems:
+            return ident.person(pid)
+    return ident.person("you")
+
+
+def _inbox_for(app: Assent, actor: str, scope: str) -> List[ChangeRecord]:
     waiting = app.queue()
-    if person.get("catch_all"):
-        others = set()
-        for p in PEOPLE.values():
-            if not p.get("catch_all"):
-                others |= set(p.get("systems") or ())
-        return [
-            r for r in waiting
-            if r.signal.target not in others or r.state is ChangeState.NEEDS_TRIAGE
-        ]
-    systems = set(person.get("systems") or ())
-    teams = set(person.get("teams") or ())
-    out = []
-    for r in waiting:
-        owner_id = r.change.owner.id if r.change is not None else ""
-        if r.signal.target in systems or owner_id in teams:
-            out.append(r)
-    return out
+    if scope == "team":
+        return waiting
+    me = ident.person(actor)
+    return [r for r in waiting if _assignee_for(r).id == me.id]
 
 
-def _history_for(app: Assent, person: dict) -> List[ChangeRecord]:
-    """Settled changes this person (or the policy engine, for catch-all) is accountable for."""
+def _history_for(app: Assent, actor: str, scope: str) -> List[ChangeRecord]:
     settled = app.settled()
-    pid = person["id"]
-    if person.get("catch_all") and pid in {"you", "alex"}:
-        # You: human decisions by this desk, plus show policy auto-assents as context.
-        return [
-            r for r in settled
-            if r.resolved_by in {pid, "you", "alex", "assent"}
-        ]
-    systems = set(person.get("systems") or ())
+    if scope == "team":
+        return settled
+    me = ident.person(actor)
     return [
         r for r in settled
-        if r.resolved_by == pid or r.signal.target in systems
+        if r.resolved_by == me.id
+        or (me.id in {"you", "alex"} and r.resolved_by in {"assent", "you", "alex"})
     ]
 
 
-def _sidebar(app: Assent, selected_id: Optional[str], tool: str) -> str:
+# --------------------------------------------------------------------- chrome
+
+
+def _rail(app: Assent, selected_id: Optional[str], tool: str) -> str:
     rows = []
     ordered = sorted(app.records(), key=lambda r: r.created_at, reverse=True)
+    open_count = len(app.queue())
     for r in ordered:
         on = " on" if r.id == selected_id else ""
-        href = f"/change/{quote(r.id)}" if tool == "chat" else f"/{tool}?c={quote(r.id)}" if tool != "chat" else f"/change/{quote(r.id)}"
         if tool == "approvals":
             href = f"/approvals?c={quote(r.id)}"
         elif tool == "infra":
@@ -497,61 +738,67 @@ def _sidebar(app: Assent, selected_id: Optional[str], tool: str) -> str:
         else:
             href = f"/change/{quote(r.id)}"
         rows.append(
-            f"""<a class="chat-row {_row_class(r)}{on}" href="{href}">
-              <span class="pip"></span>
-              <div>
-                <div class="t">{_e(_alert_title(r))}</div>
-                <div class="p">{_e(_alert_preview(r))}</div>
-              </div>
+            f"""<a class="thread-row {_row_class(r)}{on}" href="{href}">
+              <span class="state"></span>
+              <span>
+                <span class="t">{_e(_alert_title(r))}</span>
+                <span class="p">{_e(_alert_preview(r))}</span>
+              </span>
             </a>"""
         )
     body = "".join(rows) or '<div class="empty">No alerts yet.</div>'
     return f"""
-    <aside class="sidebar">
-      <div class="side-top">
-        <div class="brand-mini">Assent</div>
-        <form method="post" action="/demo">
-          <button class="new-btn" type="submit">+ Simulate alert</button>
-        </form>
+    <aside class="rail">
+      <div class="rail-inner">
+        <div class="rail-head">
+          <span class="wordmark"><span class="dot"></span>Assent</span>
+          <button class="icon-btn" type="button" onclick="assentToggleNav()"
+                  title="Hide alerts" aria-label="Hide alerts">{_ICON_PANEL}</button>
+        </div>
+        <div class="rail-actions">
+          <form method="post" action="/demo">
+            <button class="new-btn" type="submit">{_ICON_PLUS} Simulate alert</button>
+          </form>
+        </div>
+        <div class="rail-label"><span>Alerts</span><span class="count">{open_count} open</span></div>
+        <nav class="threads">{body}</nav>
       </div>
-      <div class="side-label">Alerts</div>
-      <div class="chats">{body}</div>
     </aside>
     """
 
 
-def _topbar(tool: str, actor: str, profile: str) -> str:
-    person = _person(actor)
-    tools = []
-    for key, label, href in TOOLS:
-        tools.append(f'<a class="tool {"on" if tool == key else ""}" href="{href}">{label}</a>')
-
-    selected = actor if actor in PEOPLE else "you"
-    toggles = []
-    for pid, p in PEOPLE.items():
-        on = "on" if pid == selected else ""
-        toggles.append(
-            f'<button class="{on}" type="submit" name="actor" value="{pid}">{_e(p["short"])}</button>'
-        )
-
+def _topbar(app: Assent, tool: str, actor: str, profile: str, crumb: str) -> str:
+    me = ident.person(actor)
+    tools = "".join(
+        f'<a class="{"on" if tool == key else ""}" href="{href}">{_TOOL_ICON[key]}{label}</a>'
+        for key, label, href in TOOLS
+    )
     profile_opts = "".join(
         f'<option value="{pid}" {"selected" if pid == profile else ""} title="{_e(p["hint"])}">{_e(p["label"])}</option>'
         for pid, p in PROFILES.items()
     )
     return f"""
     <header class="topbar">
-      <nav class="tools">{''.join(tools)}</nav>
-      <form class="who-toggle" method="post" action="/actor">
-        <input type="hidden" name="next" value="/{'' if tool == 'chat' else tool}">
-        {''.join(toggles)}
-      </form>
+      <div class="top-left">
+        <button class="icon-btn reveal" type="button" onclick="assentToggleNav()"
+                title="Show alerts" aria-label="Show alerts">{_ICON_PANEL}</button>
+        <span class="crumb-word">Assent</span>
+        <span class="crumb">{crumb}</span>
+      </div>
+      <nav class="segment">{tools}</nav>
       <div class="top-right">
         <form method="post" action="/profile" style="margin:0">
           <select class="profile" name="profile" onchange="this.form.submit()" aria-label="Deployment profile">
             {profile_opts}
           </select>
         </form>
-        <span class="who">acting as <strong>{_e(person['name'])}</strong> · {_e(person['role'])}</span>
+        <span class="identity" title="You are acting as {_e(me.name)}">
+          {ident.avatar(me, size="sm")}
+          <span class="byline stack">
+            <span class="byline-name">{_e(me.name)}</span>
+            <span class="byline-sub">{_e(me.subtitle)}</span>
+          </span>
+        </span>
       </div>
     </header>
     """
@@ -565,6 +812,7 @@ def _shell(
     profile: str,
     selected_id: Optional[str],
     workspace: str,
+    crumb: str,
 ) -> str:
     return f"""<!doctype html>
 <html lang="en">
@@ -573,13 +821,14 @@ def _shell(
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Assent — control plane</title>
 <style>{DASH_CSS}</style>
+<script>{_NAV_SCRIPT}</script>
 </head>
 <body>
 <div class="shell">
-  {_sidebar(app, selected_id, tool)}
-  <div class="maincol">
-    {_topbar(tool, actor, profile)}
-    <div class="workspace">{workspace}</div>
+  {_rail(app, selected_id, tool)}
+  <div class="main">
+    {_topbar(app, tool, actor, profile, crumb)}
+    {workspace}
   </div>
 </div>
 </body>
@@ -587,12 +836,16 @@ def _shell(
 """
 
 
+# --------------------------------------------------------------------- thread
+
+
 def _card_for(record: ChangeRecord) -> str:
     if record.change is None:
-        return f"""<div class="empty">No catalogued action — dismiss or write a playbook.
-          <form method="post" action="/deny" style="margin-top:12px">
+        return f"""<div class="empty">No catalogued action for this signal — it needs a
+          playbook before an agent may propose anything.
+          <form method="post" action="/deny" style="margin-top:16px">
             <input type="hidden" name="id" value="{_e(record.id)}">
-            <button class="btn" type="submit">Dismiss</button>
+            <button class="btn" type="submit">Dismiss signal</button>
           </form></div>"""
     return render_card(
         record.change,
@@ -613,7 +866,7 @@ def answer_question(record: ChangeRecord, question: str) -> str:
     if "owner" in q or "who" in q:
         return f"Authoritative owner is {pkg.owner} in {pkg.environment}. Incomplete ownership degrades to a human, never a guess."
     if "blast" in q or "radius" in q:
-        return f"Blast radius: {pkg.blast_radius_narrative}. Gate key is risk-to-act (blast × reversibility × environment × confidence)."
+        return f"Blast radius: {pkg.blast_radius_narrative}. The gate keys on risk-to-act — blast radius × reversibility × environment × confidence."
     if "command" in q or "action" in q:
         if record.change is None:
             return "No catalogued command — this signal still needs a playbook."
@@ -624,83 +877,67 @@ def answer_question(record: ChangeRecord, question: str) -> str:
     if "audit" in q:
         return pkg.technical_summary
     return (
-        f"{pkg.executive_summary} Ask me about owner, blast radius, rollback, "
+        f"{pkg.executive_summary} Ask about the owner, blast radius, rollback, "
         "the exact command, or why it was gated."
     )
 
 
-def _thread_messages(
-    record: ChangeRecord,
-    extras: Optional[Sequence[dict]] = None,
-) -> str:
+def _message(participant, body: str, *, meta: str = "", mine: bool = False) -> str:
+    cls = "msg mine" if mine else "msg"
+    return f"""
+    <article class="{cls}">
+      <div class="msg-head">{ident.identity(participant, meta=meta, is_self=mine)}</div>
+      <div class="msg-body">{body}</div>
+    </article>"""
+
+
+def _thread_messages(record: ChangeRecord, extras: Optional[Sequence[dict]] = None) -> str:
     pkg = build_package(record)
-    msgs = []
+    msgs: List[str] = []
 
-    def bubble(kind: str, who: str, when: str, body: str, extra: str = "") -> None:
-        msgs.append(
-            f"""<article class="msg">
-              <div class="avatar {kind}">{_e(who[:2].upper())}</div>
-              <div class="bubble">
-                <div class="from">{_e(who)}<span>{_e(when)}</span></div>
-                {body}{extra}
-              </div>
-            </article>"""
-        )
-
-    bubble(
-        "sensor",
-        record.signal.source,
-        pkg.attack_timeline[0].timestamp if pkg.attack_timeline else "",
-        f"<p>{_e(record.signal.summary)}</p>"
-        + (
-            "<div>" + "".join(
-                f'<span class="chip"><code>{_e(k)}</code> {_e(v)}</span>'
-                for k, v in record.signal.indicators.items()
-            ) + "</div>"
-            if record.signal.indicators
-            else ""
-        ),
+    indicators = "".join(
+        f'<span class="chip"><code>{_e(k)}</code> {_e(v)}</span>'
+        for k, v in record.signal.indicators.items()
     )
+    msgs.append(_message(
+        ident.sensor(record.signal.source),
+        f"<p>{_e(record.signal.summary)}</p>" + (f"<div>{indicators}</div>" if indicators else ""),
+        meta=pkg.attack_timeline[0].timestamp if pkg.attack_timeline else "",
+    ))
+
     if record.change is None:
-        bubble(
-            "policy",
-            "Acting Proposer",
-            "",
-            f"<p>No playbook for <strong>{_e(record.signal.kind)}</strong>. Incomplete data degrades to ask a human — never guess and act.</p>",
-        )
+        msgs.append(_message(
+            ident.AGENTS["proposer"],
+            f"<p>No playbook covers <code>{_e(record.signal.kind)}</code>, so I am not "
+            f"proposing an action. Incomplete data degrades to asking a human — never guess and act.</p>",
+        ))
     else:
-        bubble(
-            "sensor",
-            "Acting Proposer",
-            "",
-            f"<p>Proposed <strong>{_e(record.change.action.type)}</strong> on "
-            f"<code>{_e(record.change.action.target)}</code>.</p><p>{_e(record.change.reasoning)}</p>",
-        )
-        owner = record.change.owner
-        bubble(
-            "policy",
-            "Ownership Resolver",
-            "",
-            f"<p>Resolved owner <strong>{_e(owner.id)}</strong> from {_e(owner.source)} "
-            f"(graph confidence {round(owner.confidence * 100)}% — not a gate-opener).</p>",
-        )
+        change = record.change
+        msgs.append(_message(
+            ident.AGENTS["proposer"],
+            f"<p>Proposing <code>{_e(change.action.type)}</code> on "
+            f"<code>{_e(change.action.target)}</code>.</p>"
+            f"<p class=\"quiet\">{_e(change.reasoning)}</p>",
+        ))
+        owner = change.owner
+        msgs.append(_message(
+            ident.AGENTS["ownership"],
+            f"<p>Authoritative owner is <strong>{_e(owner.id)}</strong>, resolved from "
+            f"{_e(owner.source)} with {round(owner.confidence * 100)}% graph confidence. "
+            f"Graph confidence can route, never authorize.</p>",
+        ))
         if record.audit is not None:
-            bubble(
-                "audit",
-                "Independent Auditor",
-                "",
-                f"<p>{_e(record.audit.rationale or 'Second opinion recorded.')} "
-                f"Reads {round(record.audit.confidence * 100)}% vs acting "
-                f"{round(record.change.risk_envelope.confidence * 100)}%. "
-                f"{'Dissent — escalate.' if record.audit.dissent else 'Can only tighten the gate.'}</p>",
-            )
+            verdict = "Dissenting — this escalates." if record.audit.dissent else "Concurring; I can only tighten the gate."
+            msgs.append(_message(
+                ident.AGENTS["auditor"],
+                f"<p>{_e(record.audit.rationale or 'No additional risk factors flagged.')}</p>"
+                f"<p class=\"quiet\">I read {round(record.audit.confidence * 100)}% against the "
+                f"proposer's {round(change.risk_envelope.confidence * 100)}%. {verdict}</p>",
+            ))
         reasons = "".join(f"<li>{_e(r)}</li>" for r in record.reasons) or "<li>—</li>"
-        bubble(
-            "policy",
-            "Policy Engine",
-            "",
-            f"<p>Decision: {_pill_for(record)} — confidence never authorizes.</p>"
-            f"<ul>{reasons}</ul>"
+        msgs.append(_message(
+            ident.AGENTS["policy"],
+            f"<p>Decision: {_pill_for(record)}</p><ul>{reasons}</ul>"
             f"""<div class="facts">
               <div class="fact"><div class="k">Owner</div><div class="v">{_e(pkg.owner)}</div></div>
               <div class="fact"><div class="k">Environment</div><div class="v">{_e(pkg.environment)}</div></div>
@@ -709,175 +946,218 @@ def _thread_messages(
               <div class="fact"><div class="k">Business impact</div><div class="v">{_e(pkg.business_impact)}</div></div>
               <div class="fact"><div class="k">Rollback</div><div class="v">{_e(pkg.rollback)}</div></div>
             </div>""",
+        ))
+        mitre = "".join(
+            f'<span class="chip"><code>{_e(m.id)}</code> {_e(m.name)}</span>'
+            for m in pkg.mitre_techniques
         )
-        bubble(
-            "sensor",
-            "Assent",
-            "",
-            f"<p><strong>Executive summary</strong> — {_e(pkg.executive_summary)}</p>"
-            + (
-                "<p class='muted' style='margin-top:8px'>MITRE (context only, not a gate input): "
-                + " ".join(
-                    f"<span class='chip'><code>{_e(m.id)}</code> {_e(m.name)}</span>"
-                    for m in pkg.mitre_techniques
-                )
-                + "</p>"
-                if pkg.mitre_techniques
-                else ""
-            ),
-        )
+        msgs.append(_message(
+            ident.AGENTS["assent"],
+            f"<p><strong>Executive summary.</strong> {_e(pkg.executive_summary)}</p>"
+            + (f'<p class="quiet">MITRE context — enrichment only, never a gate input:</p><div>{mitre}</div>' if mitre else ""),
+        ))
 
     for extra in extras or ():
-        role = extra.get("role", "user")
-        if role == "user":
-            msgs.append(
-                f"""<article class="msg user">
-                  <div class="avatar user">YO</div>
-                  <div class="bubble">
-                    <div class="from">You</div>
-                    <p>{_e(extra.get('text', ''))}</p>
-                  </div>
-                </article>"""
-            )
+        if extra.get("role") == "user":
+            msgs.append(_message(
+                ident.person("you"),
+                f"<p>{_e(extra.get('text', ''))}</p>",
+                mine=True,
+            ))
         else:
-            bubble("policy", "Assent", "", f"<p>{_e(extra.get('text', ''))}</p>")
+            msgs.append(_message(
+                ident.AGENTS["assent"],
+                f"<p>{_e(extra.get('text', ''))}</p>",
+            ))
 
     traces = pkg.agent_trace
-    trace_html = f"""
-    <details class="block">
-      <summary class="block-label">Agent reasoning trace</summary>
-      <pre class="block-body mono" style="white-space:pre-wrap">{_e(json.dumps({
-        'proposer': traces.proposer, 'ownership': traces.ownership,
-        'auditor': traces.auditor, 'policy': traces.policy,
-      }, indent=2))}</pre>
-    </details>
+    trace_json = json.dumps(
+        {
+            "proposer": traces.proposer,
+            "ownership": traces.ownership,
+            "auditor": traces.auditor,
+            "policy": traces.policy,
+        },
+        indent=2,
+    )
+    tail = f"""
+    <div class="subhead"><h2>Gated remediation</h2>
+      <span class="note">{_e(_STATE_LABEL.get(record.state, record.state.value))}</span></div>
+    {_card_for(record)}
+    <details class="trace"><summary>Agent reasoning trace</summary><pre>{_e(trace_json)}</pre></details>
     """
-    card = f'<div class="remediation"><div class="block-label" style="margin-top:18px">Gated remediation</div>{_card_for(record)}{trace_html}</div>'
-    return "".join(msgs) + card
+    return "".join(msgs) + tail
 
 
-def _chat_workspace(
-    app: Assent,
-    record: Optional[ChangeRecord],
-    extras: Optional[Sequence[dict]] = None,
-) -> str:
+def _thread_workspace(record: Optional[ChangeRecord], extras: Optional[Sequence[dict]] = None) -> str:
     if record is None:
-        return """<div class="thread"><div class="thread-inner">
-          <div class="empty">Select an alert in the sidebar — each one is a thread.</div>
+        return """<div class="page"><div class="page-inner">
+          <div class="empty">Select an alert on the left. Each one is a thread —
+          sensor, agents, and the gate decision in order.</div>
         </div></div>"""
-    composer = f"""
-    <form class="composer" method="post" action="/ask">
-      <input type="hidden" name="id" value="{_e(record.id)}">
-      <div class="composer-box">
-        <textarea name="q" rows="1" placeholder="Ask about owner, blast radius, rollback, or why this was gated…"></textarea>
-        <button type="submit">Send</button>
-      </div>
-    </form>
-    """
+    assignee = _assignee_for(record)
     return f"""
-    <div class="thread">
-      <div class="thread-inner">
-        {_thread_messages(record, extras)}
+    <div class="thread-view">
+      <div class="thread-head">
+        <div class="thread-head-inner">
+          {_pill_for(record)}
+          <h1>{_e(_alert_title(record))}</h1>
+          <div class="sub">
+            <code>{_e(record.id)}</code>
+            <span>severity {_e(record.signal.severity)}</span>
+            <span>routed to {_e(assignee.name)} · {_e(assignee.subtitle)}</span>
+          </div>
+        </div>
       </div>
+      <div class="scroll"><div class="scroll-inner">{_thread_messages(record, extras)}</div></div>
+      <form class="composer" method="post" action="/ask">
+        <input type="hidden" name="id" value="{_e(record.id)}">
+        <div class="composer-box">
+          <textarea name="q" rows="1" placeholder="Ask about the owner, blast radius, rollback, or why this was gated…"></textarea>
+          <button type="submit">Ask</button>
+        </div>
+        <div class="composer-hint">Answers are retrieval over this incident package. Questions never change a gate.</div>
+      </form>
     </div>
-    {composer}
     """
 
 
-def _approvals_workspace(app: Assent, actor: str, selected_id: Optional[str]) -> str:
-    person = _person(actor)
-    inbox = _inbox_for(app, person)
-    history = _history_for(app, person)
-    other = PEOPLE["jordan"] if person["id"] != "jordan" else PEOPLE["you"]
+# --------------------------------------------------------------------- approvals
+
+
+def _approvals_workspace(app: Assent, actor: str, selected_id: Optional[str], scope: str) -> str:
+    me = ident.person(actor)
+    inbox = _inbox_for(app, actor, scope)
+    history = _history_for(app, actor, scope)
+    scope_label = "the team" if scope == "team" else (me.short or me.name)
+
+    seg = "".join(
+        f'<button class="{"on" if scope == key else ""}" type="submit" name="scope" value="{key}">{label}</button>'
+        for key, label in (("you", "You"), ("team", "Team"))
+    )
 
     cards = []
     for r in inbox:
-        on = ' style="border-color:var(--brand)"' if r.id == selected_id else ""
-        ch = r.change
-        cmd = f"{ch.action.type} → {ch.action.target}" if ch else "no playbook yet"
-        env = ch.risk_envelope.environment.value if ch else "—"
-        blast = str(ch.risk_envelope.blast_radius) if ch else "—"
-        owner = ch.owner.id if ch else "unknown"
+        change = r.change
+        assignee = _assignee_for(r)
+        cmd = f"{change.action.type} → {change.action.target}" if change else "no catalogued action"
+        env = change.risk_envelope.environment.value if change else "—"
+        blast = str(change.risk_envelope.blast_radius) if change else "—"
+        rev = change.risk_envelope.reversibility.value if change else "—"
+        owner = change.owner.id if change else "unknown"
+        expanded = r.id == selected_id or len(inbox) == 1
+        body = f'<div class="acard-body">{_card_for(r)}</div>' if expanded else ""
+        href = f"/approvals?c={quote(r.id)}" if not expanded else f"/change/{quote(r.id)}"
+        cta = "Open thread" if expanded else "Review"
         cards.append(
-            f"""<div class="acard"{on}>
-              <div class="row">
+            f"""<div class="acard">
+              <div class="acard-head">
                 <div>
-                  <div class="t"><a href="/change/{quote(r.id)}">{_e(_alert_title(r))}</a></div>
-                  <div class="m">{_e(r.id)} · {_e(cmd)}</div>
+                  <div class="acard-title">{_e(_alert_title(r))}</div>
+                  <div class="acard-cmd">{_e(r.id)} · {_e(cmd)}</div>
                 </div>
-                {_pill_for(r)}
+                <div style="display:flex; align-items:center; gap:12px">
+                  {_pill_for(r)}
+                  <a class="btn btn-secondary" href="{href}">{cta}</a>
+                </div>
               </div>
-              <div class="detail-grid">
-                <div class="fact"><div class="k">Target</div><div class="v">{_e(r.signal.target)}</div></div>
-                <div class="fact"><div class="k">Environment</div><div class="v">{_e(env)}</div></div>
-                <div class="fact"><div class="k">Blast radius</div><div class="v">{_e(blast)}</div></div>
-                <div class="fact"><div class="k">Owner</div><div class="v">{_e(owner)}</div></div>
+              <div class="acard-meta">
+                <div class="mini"><div class="k">Assigned to</div>
+                  <div class="v">{ident.identity(assignee, is_self=assignee.id == me.id)}</div></div>
+                <div class="mini"><div class="k">Owner of record</div><div class="v">{_e(owner)}</div></div>
+                <div class="mini"><div class="k">Environment</div><div class="v">{_e(env)}</div></div>
+                <div class="mini"><div class="k">Blast radius</div><div class="v num">{_e(blast)}</div></div>
+                <div class="mini"><div class="k">Reversibility</div><div class="v">{_e(rev)}</div></div>
               </div>
-              {_card_for(r) if r.id == selected_id or len(inbox) == 1 else ''}
+              {body}
             </div>"""
         )
-
-    inbox_html = "".join(cards) or f'<div class="empty">Nothing waiting on {_e(person["name"])}. Toggle to {_e(other["short"])} to see their inbox.</div>'
+    inbox_html = "".join(cards) or (
+        f'<div class="empty">Nothing is waiting on {_e(scope_label)}. '
+        f'Switch to {"You" if scope == "team" else "Team"} to widen the view.</div>'
+    )
 
     rows = []
     for r in history:
-        ch = r.change
-        cmd = f"{ch.action.type}" if ch else r.signal.kind
-        target = ch.action.target if ch else r.signal.target
-        env = ch.risk_envelope.environment.value if ch else "—"
-        blast = ch.risk_envelope.blast_radius if ch else "—"
-        rev = ch.risk_envelope.reversibility.value if ch else "—"
-        owner = ch.owner.id if ch else "unknown"
+        change = r.change
+        decider = ident.resolver(r.resolved_by or "assent")
+        cmd = change.action.type if change else r.signal.kind
+        target = change.action.target if change else r.signal.target
+        env = change.risk_envelope.environment.value if change else "—"
+        blast = change.risk_envelope.blast_radius if change else "—"
+        rev = change.risk_envelope.reversibility.value if change else "—"
+        owner = change.owner.id if change else "unknown"
         why = "; ".join(r.reasons[:2]) if r.reasons else "—"
-        who = r.resolved_by or "—"
-        when = r.resolved_at.strftime("%H:%M:%S") if r.resolved_at else "—"
-        rollback = ch.rollback if ch is not None else "—"
+        when = r.resolved_at.strftime("%b %d · %H:%M:%S") if r.resolved_at else "—"
+        rollback = change.rollback if change is not None else "—"
         rows.append(
             f"""<tr>
-              <td><a href="/change/{quote(r.id)}">{_e(cmd)}</a><div class="muted">{_e(r.id)}</div></td>
-              <td><code>{_e(target)}</code><div class="muted">{_e(env)} · blast { _e(str(blast)) } · {_e(rev)}</div></td>
+              <td><a class="strong" href="/change/{quote(r.id)}">{_e(_titlecase_action(cmd))}</a>
+                  <div class="muted"><code>{_e(r.id)}</code></div></td>
+              <td><code>{_e(target)}</code>
+                  <div class="muted">{_e(env)} · blast {_e(str(blast))} · {_e(rev)}</div></td>
               <td>{_pill_for(r)}<div class="muted">{_e(_STATE_LABEL.get(r.state, r.state.value))}</div></td>
-              <td>{_e(who)}<div class="muted">{_e(when)}</div></td>
+              <td>{ident.identity(decider, is_self=decider.id == me.id, compact=True)}
+                  <div class="muted" style="margin-top:4px">{_e(when)}</div></td>
               <td>{_e(owner)}</td>
               <td class="why">{_e(why)}</td>
-              <td>{_e(rollback)}</td>
+              <td class="why">{_e(rollback)}</td>
             </tr>"""
         )
-    table = "\n".join(rows) or f'<tr><td colspan="7" class="muted">No approvals recorded for {_e(person["name"])} yet. Approve something — it lands here, not in a hash table.</td></tr>'
-
-    ok, message = app.ledger.verify()
-    chain = (
-        f'<div class="chain ok">Integrity: chain verified across {len(app.ledger)} entries — hashes are the receipt, not the product.</div>'
-        if ok
-        else f'<div class="chain bad">Integrity broken — {_e(message)}</div>'
+    table = "\n".join(rows) or (
+        f'<tr><td colspan="7" class="muted" style="padding:28px; text-align:center">'
+        f'No decisions recorded for {_e(scope_label)} yet.</td></tr>'
     )
 
+    ok, message = app.ledger.verify()
+    integrity = (
+        f'<div class="footnote ok">Hash chain verified across {len(app.ledger)} entries.</div>'
+        if ok
+        else f'<div class="footnote bad">Hash chain broken — {_e(message)}</div>'
+    )
+
+    auto = app.stats().get("auto_executed", 0)
     return f"""
-    <div class="page">
-      <h1>Approvals</h1>
-      <p class="lede">
-        Desk of <strong>{_e(person["name"])}</strong> ({_e(person["role"])}).
-        Toggle You / Jordan in the top middle to sit at someone else's desk —
-        inbox and audit follow the person, not a shared SOC pile.
-      </p>
-      <div class="section-h"><h2>Inbox · waiting on {_e(person["short"])}</h2>
-        <span class="muted">{len(inbox)} open</span></div>
+    <div class="page"><div class="page-inner">
+      <div class="page-head">
+        <div>
+          <h1>Approvals</h1>
+          <p class="lede">Every write is routed to a named, authoritative human — never a
+          shared queue. Audit follows the same scope you are viewing.</p>
+        </div>
+        <form class="segment" method="post" action="/scope">
+          <input type="hidden" name="next" value="/approvals">
+          {seg}
+        </form>
+      </div>
+
+      <div class="stats">
+        <div class="stat route"><div class="n">{len(inbox)}</div><div class="l">awaiting {_e(scope_label)}</div></div>
+        <div class="stat auto"><div class="n">{auto}</div><div class="l">auto-assented by policy</div></div>
+        <div class="stat"><div class="n">{len(history)}</div><div class="l">decisions on record</div></div>
+      </div>
+
+      <div class="subhead"><h2>Inbox</h2>
+        <span class="note">expand a card to approve, deny, or undo</span></div>
       <div class="cards">{inbox_html}</div>
 
-      <div class="section-h" style="margin-top:28px"><h2>Audit · {_e(person["short"])}'s decisions</h2>
-        <span class="muted">command, target, envelope, who, why, rollback</span></div>
-      <div style="overflow:auto; border:1px solid var(--line); border-radius:14px">
-        <table class="audit-table">
+      <div class="subhead"><h2>Audit</h2>
+        <span class="note">command · envelope · decider · why · rollback</span></div>
+      <div class="tbl-wrap">
+        <table class="tbl">
           <thead><tr>
             <th>Action</th><th>Target &amp; envelope</th><th>Outcome</th>
-            <th>Who / when</th><th>Owner</th><th>Why the engine gated</th><th>Rollback</th>
+            <th>Decided by</th><th>Owner of record</th><th>Why the engine gated</th><th>Rollback</th>
           </tr></thead>
           <tbody>{table}</tbody>
         </table>
       </div>
-      {chain}
-    </div>
+      {integrity}
+    </div></div>
     """
+
+
+# --------------------------------------------------------------------- infra
 
 
 def _infra_workspace(app: Assent, selected_id: Optional[str]) -> str:
@@ -888,22 +1168,38 @@ def _infra_workspace(app: Assent, selected_id: Optional[str]) -> str:
             selected_sys = app.require(selected_id).signal.target
         except KeyError:
             selected_sys = None
-    roster_bits = []
+
+    items = []
     for a in agents:
-        roster_bits.append(
-            f'<span class="chip"><strong>{_e(a.name)}</strong> · {_e(a.status.value)} — {_e(a.detail)}</span>'
+        p = ident.agent(a.role.value) or ident.AGENTS["assent"]
+        items.append(
+            f"""<div class="roster-item">
+              {ident.avatar(p, size="sm")}
+              <span class="byline stack">
+                <span class="byline-name">{_e(p.name)}</span>
+                <span class="detail">{_e(a.detail)}</span>
+              </span>
+              <span class="status-dot dot-{a.status.value}" title="{_e(a.status.value)}"></span>
+            </div>"""
         )
+
     return f"""
-    <div class="pt-wrap">
-      <div class="pt-head">
-        <h1>Infrastructure</h1>
-        <p class="lede">Packet Tracer view of what Assent can see. Colored zones are environments.
-        Letters on a node are agents currently working that system — click a device to open its alert.</p>
-        <div>{''.join(roster_bits)}</div>
+    <div class="infra"><div class="infra-inner">
+      <div class="page-head">
+        <div>
+          <h1>Infrastructure</h1>
+          <p class="lede">What Assent can see. Zones are environments; a dashed link is a
+          path with an open change. Letters on a device are agents working it right now —
+          click a device to open its thread.</p>
+        </div>
       </div>
+      <div class="roster">{''.join(items)}</div>
       {render_topology(app, agents, selected=selected_sys)}
-    </div>
+    </div></div>
     """
+
+
+# --------------------------------------------------------------------- entry
 
 
 def render_app(
@@ -914,6 +1210,7 @@ def render_app(
     tool: str = "chat",
     selected_id: Optional[str] = None,
     extras: Optional[Sequence[dict]] = None,
+    scope: str = "you",
 ) -> str:
     selected = None
     if selected_id:
@@ -926,11 +1223,14 @@ def render_app(
         selected_id = selected.id
 
     if tool == "approvals":
-        workspace = _approvals_workspace(app, actor, selected_id)
+        workspace = _approvals_workspace(app, actor, selected_id, scope)
+        crumb = "Approvals <strong>·</strong> " + ("Team" if scope == "team" else "You")
     elif tool == "infra":
         workspace = _infra_workspace(app, selected_id)
+        crumb = f"Infrastructure <strong>·</strong> {len(app.inventory.names())} systems"
     else:
-        workspace = _chat_workspace(app, selected, extras)
+        workspace = _thread_workspace(selected, extras)
+        crumb = "Threads" + (f" <strong>·</strong> {_e(selected.id)}" if selected else "")
 
     return _shell(
         app=app,
@@ -939,6 +1239,7 @@ def render_app(
         profile=profile,
         selected_id=selected_id,
         workspace=workspace,
+        crumb=crumb,
     )
 
 
@@ -961,12 +1262,8 @@ def render_change(
     extras: Optional[Sequence[dict]] = None,
 ) -> str:
     return render_app(
-        app,
-        actor=actor,
-        profile=profile,
-        tool="chat",
-        selected_id=record.id,
-        extras=extras,
+        app, actor=actor, profile=profile, tool="chat",
+        selected_id=record.id, extras=extras,
     )
 
 
@@ -975,5 +1272,5 @@ def render_overview(app: Assent, *, actor: str, profile: str) -> str:
 
 
 def render_ledger_page(app: Assent, *, actor: str, profile: str) -> str:
-    """Kept as a route alias — the useful surface is Approvals → Audit, not a hash log."""
+    """Route alias — the useful surface is Approvals → Audit, not a hash log."""
     return render_app(app, actor=actor, profile=profile, tool="approvals")
