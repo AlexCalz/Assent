@@ -109,6 +109,7 @@ DASH_CSS = """
   --auto: #17714a; --auto-bg: #e8f3ec;
   --route: #8a5a0f; --route-bg: #f8efdb;
   --escalate: #a13232; --escalate-bg: #f8e6e6;
+  --info: #2f5d9f; --info-bg: #e8eef8;
 
   --sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --display: "Newsreader", Georgia, serif;
@@ -571,11 +572,30 @@ select.profile:hover { border-color: var(--line-2); }
 
 .cards { display: flex; flex-direction: column; gap: var(--s3); }
 .acard {
+  position: relative;
   border: 1px solid var(--line); border-radius: var(--r-lg);
   background: var(--n0);
-  transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+  transition: box-shadow 160ms var(--ease);
 }
-.acard:hover { border-color: var(--line-2); box-shadow: var(--shadow-1); }
+.acard::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--tone, var(--line-2));
+  pointer-events: none;
+}
+.acard.tone-escalate { --tone: var(--escalate); --tone-bg: var(--escalate-bg); }
+.acard.tone-route { --tone: var(--route); --tone-bg: var(--route-bg); }
+.acard.tone-auto { --tone: var(--auto); --tone-bg: var(--auto-bg); }
+.acard.tone-info { --tone: var(--info); --tone-bg: var(--info-bg); }
+.acard:hover { box-shadow: var(--shadow-2); }
+.acard .pill, .acard .sev {
+  background: var(--tone-bg);
+  color: var(--tone);
+}
 .acard-head {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: var(--s4); padding: var(--s4);
@@ -627,21 +647,18 @@ table.tbl .why { color: var(--ink-2); max-width: 30ch; line-height: 1.5; }
 .pill-auto { background: var(--auto-bg); color: var(--auto); }
 .pill-route { background: var(--route-bg); color: var(--route); }
 .pill-escalate { background: var(--escalate-bg); color: var(--escalate); }
-.pill-triage { background: var(--n3); color: var(--ink-3); }
+.pill-triage { background: var(--info-bg); color: var(--info); }
 .signals { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .sev {
   display: inline-flex; align-items: center;
-  font-size: 11px; font-weight: 650; letter-spacing: 0.04em;
+  font-size: 9.5px; font-weight: 650; letter-spacing: 0.07em;
   text-transform: uppercase; font-variant-numeric: tabular-nums;
+  padding: 3px 8px; border-radius: 6px; white-space: nowrap; line-height: 1.6;
 }
-.sev::before {
-  content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%;
-  margin-right: 6px; vertical-align: 0.5px; background: currentColor;
-}
-.sev-critical { color: var(--escalate); }
-.sev-high { color: var(--route); }
-.sev-medium { color: var(--ink-2); }
-.sev-low { color: var(--auto); }
+.sev-critical { background: var(--escalate-bg); color: var(--escalate); }
+.sev-high { background: var(--route-bg); color: var(--route); }
+.sev-medium { background: var(--info-bg); color: var(--info); }
+.sev-low { background: var(--auto-bg); color: var(--auto); }
 
 .btn {
   appearance: none; border: 1px solid var(--line-2); border-radius: var(--r-md);
@@ -658,10 +675,19 @@ table.tbl .why { color: var(--ink-2); max-width: 30ch; line-height: 1.5; }
 .actions .btn-primary { color: #ffffff; }
 
 /* approval card primitives */
-.card { background: var(--n0); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s4); border-left: 3px solid var(--line-2); }
-.card.tone-auto { border-left-color: var(--auto); }
-.card.tone-route { border-left-color: var(--route); }
-.card.tone-escalate { border-left-color: var(--escalate); }
+.card {
+  background: var(--n0);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--s4);
+  border-left: 4px solid var(--tone, var(--line-2));
+}
+.card.tone-auto { --tone: var(--auto); --tone-bg: var(--auto-bg); }
+.card.tone-route { --tone: var(--route); --tone-bg: var(--route-bg); }
+.card.tone-escalate { --tone: var(--escalate); --tone-bg: var(--escalate-bg); }
+.card.tone-info { --tone: var(--info); --tone-bg: var(--info-bg); }
+/* Expanded inbox card: inner gated card's left bar matches the outer accent. */
+.acard .card { --tone: inherit; --tone-bg: inherit; }
 .card-head .action-type { margin: var(--s2) 0 2px; font-size: var(--t-h3); letter-spacing: -0.015em; }
 .card-head .stance { margin: 0; color: var(--ink-2); font-size: var(--t-small); line-height: 1.5; }
 .verdict { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
@@ -1053,6 +1079,23 @@ def _pill_for(record: ChangeRecord) -> str:
     )
     label = {"auto": "auto", "route": "needs owner", "escalate": "escalated"}[key] if key != "auto" else "auto"
     return f'<span class="pill pill-{key}">{label}</span>'
+
+
+def _card_tone(record: ChangeRecord) -> str:
+    """Accent family for an inbox card — severity and gate, not decoration.
+
+    escalate/critical → red, high/route_to_owner → amber, auto/low → green,
+    triage/medium → blue. More severe of severity and gate wins.
+    """
+    sev = (record.signal.severity or "medium").lower()
+    decision = record.decision.value if record.decision is not None else None
+    if record.state is ChangeState.ESCALATED or decision == "escalate" or sev == "critical":
+        return "escalate"
+    if decision == "route_to_owner" or sev == "high":
+        return "route"
+    if decision == "auto" or sev == "low" or record.state is ChangeState.AUTO_EXECUTED:
+        return "auto"
+    return "info"
 
 
 def _sev_chip(record: ChangeRecord) -> str:
@@ -1556,7 +1599,7 @@ def _approvals_workspace(app: Assent, actor: str, selected_id: Optional[str], sc
         href = f"/approvals?c={quote(r.id)}" if not expanded else f"/change/{quote(r.id)}"
         cta = "Open thread" if expanded else "Review"
         cards.append(
-            f"""<div class="acard">
+            f"""<div class="acard tone-{_card_tone(r)}">
               <div class="acard-head">
                 <div>
                   <div class="acard-title">{_e(_alert_title(r))}</div>

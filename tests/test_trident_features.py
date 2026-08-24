@@ -273,4 +273,31 @@ def test_approvals_inbox_and_audit_are_collapsible():
     assert ">You<" in page and ">Team<" in page
     assert "data-glass-toggle" not in page
     assert "imp-critical" not in page and "imp-high" not in page
+    assert 'class="acard tone-' in page
+    assert any(
+        token in page
+        for token in ("tone-escalate", "tone-route", "tone-auto", "tone-info")
+    )
     assert 'class="sev sev-' in page
+    assert 'class="pill pill-' in page
+
+
+def test_inbox_card_tone_follows_severity_and_gate():
+    from assent.dashboard import _card_tone, render_app
+
+    app = demo_app()
+    page = render_app(app, actor="you", profile="cloud", tool="approvals", scope="team")
+    for record in app.queue():
+        tone = _card_tone(record)
+        assert tone in {"escalate", "route", "auto", "info"}
+        assert f'class="acard tone-{tone}"' in page
+        sev = (record.signal.severity or "medium").lower()
+        decision = record.decision.value if record.decision is not None else None
+        if record.state.value == "escalated" or decision == "escalate" or sev == "critical":
+            assert tone == "escalate"
+        elif decision == "route_to_owner" or sev == "high":
+            assert tone == "route"
+        elif decision == "auto" or sev == "low":
+            assert tone == "auto"
+        else:
+            assert tone == "info"
