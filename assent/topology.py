@@ -1,7 +1,8 @@
-"""Infrastructure inventory — systems grouped by environment.
+"""Infrastructure map — a quiet schematic, not a cartoon lab.
 
-A professional control-plane surface: lanes of systems, not a cartoon network
-diagram. Open changes and the agents working them sit on the row.
+Zones are rooms with hairline walls. Systems are plates. An open change is a
+left mark on the node; agents working it are a small status dot. Click a
+system to open its thread.
 """
 
 from __future__ import annotations
@@ -15,32 +16,36 @@ from assent.runtime import Assent, ChangeRecord
 
 _e = html.escape
 
-_LABELS: Dict[str, Tuple[str, str]] = {
-    "internet": ("Internet", "WAN"),
-    "staging-edge-fw": ("Edge Firewall", "Edge"),
-    "stg-access-sw": ("Access Switch", "Staging"),
-    "laptop-4471": ("Laptop 4471", "Endpoint"),
-    "payments-staging-api": ("Payments", "Staging"),
-    "prod-core-sw": ("Core Switch", "Production"),
-    "auth-service": ("Auth Service", "Identity"),
-    "payments-api": ("Payments API", "Production"),
-    "analytics-worker": ("Analytics", "Production"),
-    "payments-latency": ("Latency Probe", "Production"),
-    "dev-sandbox-07": ("Dev Sandbox", "Development"),
+_NW, _NH = 148.0, 66.0
+_HW, _HH = _NW / 2, _NH / 2
+
+_LABELS: Dict[str, str] = {
+    "internet": "Internet",
+    "staging-edge-fw": "Edge Firewall",
+    "stg-access-sw": "Access Switch",
+    "laptop-4471": "Laptop 4471",
+    "payments-staging-api": "Payments",
+    "prod-core-sw": "Core Switch",
+    "auth-service": "Auth Service",
+    "payments-api": "Payments API",
+    "analytics-worker": "Analytics",
+    "payments-latency": "Latency Probe",
+    "dev-sandbox-07": "Dev Sandbox",
 }
 
+# Coordinates are plate centers. Keep ≥24px padding inside each zone.
 _FABRIC: Tuple[dict, ...] = (
-    {"id": "internet", "kind": "edge", "zone": "wan"},
-    {"id": "staging-edge-fw", "kind": "firewall", "zone": "edge"},
-    {"id": "stg-access-sw", "kind": "switch", "zone": "staging"},
-    {"id": "laptop-4471", "kind": "endpoint", "zone": "staging"},
-    {"id": "payments-staging-api", "kind": "service", "zone": "staging"},
-    {"id": "prod-core-sw", "kind": "switch", "zone": "prod"},
-    {"id": "auth-service", "kind": "service", "zone": "prod"},
-    {"id": "payments-api", "kind": "service", "zone": "prod"},
-    {"id": "analytics-worker", "kind": "service", "zone": "prod"},
-    {"id": "payments-latency", "kind": "service", "zone": "prod"},
-    {"id": "dev-sandbox-07", "kind": "service", "zone": "dev"},
+    {"id": "internet", "kind": "cloud", "zone": "wan", "x": 600, "y": 86},
+    {"id": "staging-edge-fw", "kind": "firewall", "zone": "edge", "x": 600, "y": 214},
+    {"id": "stg-access-sw", "kind": "switch", "zone": "staging", "x": 180, "y": 368},
+    {"id": "laptop-4471", "kind": "endpoint", "zone": "staging", "x": 112, "y": 512},
+    {"id": "payments-staging-api", "kind": "service", "zone": "staging", "x": 248, "y": 512},
+    {"id": "prod-core-sw", "kind": "switch", "zone": "prod", "x": 600, "y": 368},
+    {"id": "auth-service", "kind": "service", "zone": "prod", "x": 468, "y": 512},
+    {"id": "payments-api", "kind": "service", "zone": "prod", "x": 600, "y": 512},
+    {"id": "analytics-worker", "kind": "service", "zone": "prod", "x": 732, "y": 512},
+    {"id": "payments-latency", "kind": "service", "zone": "prod", "x": 600, "y": 628},
+    {"id": "dev-sandbox-07", "kind": "service", "zone": "dev", "x": 1020, "y": 430},
 )
 
 _LINKS: Tuple[Tuple[str, str], ...] = (
@@ -56,32 +61,28 @@ _LINKS: Tuple[Tuple[str, str], ...] = (
     ("payments-api", "payments-latency"),
 )
 
-_LANES: Tuple[Tuple[str, str], ...] = (
-    ("wan", "WAN"),
-    ("edge", "Edge"),
-    ("staging", "Staging"),
-    ("prod", "Production"),
-    ("dev", "Development"),
+_ZONES: Tuple[dict, ...] = (
+    {"id": "wan", "label": "WAN", "x": 470, "y": 28, "w": 260, "h": 116},
+    {"id": "edge", "label": "Edge", "x": 470, "y": 156, "w": 260, "h": 116},
+    {"id": "staging", "label": "Staging", "x": 28, "y": 300, "w": 308, "h": 280},
+    {"id": "prod", "label": "Production", "x": 352, "y": 300, "w": 496, "h": 392},
+    {"id": "dev", "label": "Development", "x": 864, "y": 300, "w": 312, "h": 220},
 )
 
-_KIND = {
-    "edge": "edge",
-    "firewall": "firewall",
-    "switch": "switch",
-    "endpoint": "endpoint",
-    "service": "service",
+_SEV_COLOR = {
+    "critical": "#a13232",
+    "high": "#8a5a0f",
+    "medium": "#565652",
+    "low": "#17714a",
 }
 
 
 def _caption(node_id: str) -> str:
-    return _LABELS.get(node_id, (node_id.replace("-", " ").title(), "Fabric"))[0]
+    return _LABELS.get(node_id, node_id.replace("-", " ").title())
 
 
-def _parents() -> Dict[str, List[str]]:
-    out: Dict[str, List[str]] = {}
-    for a, b in _LINKS:
-        out.setdefault(b, []).append(a)
-    return out
+def _index() -> Dict[str, dict]:
+    return {n["id"]: n for n in _FABRIC}
 
 
 def pins_for(app: Assent, agents: Sequence[AgentView]) -> Dict[str, List[dict]]:
@@ -133,24 +134,76 @@ def pins_for(app: Assent, agents: Sequence[AgentView]) -> Dict[str, List[dict]]:
     return pins
 
 
-def _open_signals(record: ChangeRecord) -> str:
+def _mark(kind: str, color: str) -> str:
+    """Tiny geometric mark — stroke only, sits in the left of the plate."""
+    s = f'stroke="{color}" fill="none" stroke-width="1.35" stroke-linejoin="round" stroke-linecap="round"'
+    if kind == "cloud":
+        return f'<path {s} d="M-3 6h11a5 5 0 0 0 0-10 6.2 6.2 0 0 0-12 1.2A4.4 4.4 0 0 0-3 6z"/>'
+    if kind == "firewall":
+        return (
+            f'<rect {s} x="-8" y="-7" width="16" height="14" rx="2"/>'
+            f'<path {s} d="M-5 -3h10M-5 0h10M-5 3h10"/>'
+        )
+    if kind == "switch":
+        return (
+            f'<rect {s} x="-9" y="-5" width="18" height="10" rx="2"/>'
+            f'<path {s} d="M-5 -2v4M-1 -2v4M3 -2v4M7 -2v4"/>'
+        )
+    if kind == "endpoint":
+        return (
+            f'<rect {s} x="-8" y="-7" width="16" height="11" rx="1.6"/>'
+            f'<path {s} d="M-3 7h6"/>'
+        )
+    return f'<rect {s} x="-7" y="-8" width="14" height="16" rx="2.2"/>'
+
+
+def _ports(a: dict, b: dict) -> Tuple[float, float, float, float]:
+    ax, ay, bx, by = a["x"], a["y"], b["x"], b["y"]
+    if by > ay + 24:
+        return ax, ay + _HH, bx, by - _HH
+    if ay > by + 24:
+        return ax, ay - _HH, bx, by + _HH
+    if bx > ax:
+        return ax + _HW, ay, bx - _HW, by
+    return ax - _HW, ay, bx + _HW, by
+
+
+def _elbow(x1: float, y1: float, x2: float, y2: float) -> str:
+    if abs(x1 - x2) < 0.8:
+        return f"M{x1:.1f},{y1:.1f}V{y2:.1f}"
+    if abs(y1 - y2) < 0.8:
+        return f"M{x1:.1f},{y1:.1f}H{x2:.1f}"
+    mid = (y1 + y2) / 2
+    return f"M{x1:.1f},{y1:.1f}V{mid:.1f}H{x2:.1f}V{y2:.1f}"
+
+
+def _meta_line(node_id: str, inventory: Inventory, app: Assent) -> str:
+    sys = inventory.lookup(node_id)
+    bits: List[str] = []
+    if sys is not None:
+        bits.append({"dev": "Development", "staging": "Staging", "prod": "Production"}[sys.environment.value])
+        if sys.tier0:
+            bits.append("Tier 0")
+    else:
+        bits.append({
+            "internet": "WAN",
+            "stg-access-sw": "Staging",
+            "prod-core-sw": "Production",
+        }.get(node_id, "Fabric"))
+    owner = app.graph.resolve(node_id)
+    if owner.id != "unknown":
+        bits.append(owner.id)
+    return " · ".join(bits)
+
+
+def _severity(record: Optional[ChangeRecord]) -> str:
+    if record is None:
+        return ""
     sev = (record.signal.severity or "medium").lower()
-    if sev not in {"critical", "high", "medium", "low"}:
-        sev = "medium"
-    label = {"critical": "Critical", "high": "High", "medium": "Medium", "low": "Low"}[sev]
-    gate = "triage"
-    key = "triage"
-    if record.decision is not None:
-        raw = record.decision.value
-        key = {"auto": "auto", "route_to_owner": "route", "escalate": "escalate"}.get(raw, "triage")
-        gate = {"auto": "auto", "route": "needs owner", "escalate": "escalated", "triage": "triage"}[key]
-    return (
-        f'<span class="sev sev-{_e(sev)}">{label}</span>'
-        f'<span class="pill pill-{key}">{gate}</span>'
-    )
+    return sev if sev in _SEV_COLOR else "medium"
 
 
-def _sys_row(
+def _node(
     node: dict,
     *,
     inventory: Inventory,
@@ -158,56 +211,57 @@ def _sys_row(
     pins: Dict[str, List[dict]],
     open_by_target: Dict[str, List[ChangeRecord]],
     href_for: Dict[str, str],
-    parents: Dict[str, List[str]],
     selected: Optional[str],
 ) -> str:
     node_id = node["id"]
-    name = _caption(node_id)
     recs = open_by_target.get(node_id) or []
+    rec = recs[0] if recs else None
+    sev = _severity(rec)
     href = href_for.get(node_id, "")
     on = " on" if node_id == selected else ""
-    muted = "" if href else " muted"
+    hot = " hot" if rec else ""
+    ink = "#0d5c56" if rec else "#3a4248"
+    accent = _SEV_COLOR.get(sev, "")
+    name = _caption(node_id)
+    meta = _meta_line(node_id, inventory, app)
 
-    meta_bits = [_KIND.get(node["kind"], node["kind"])]
-    sys = inventory.lookup(node_id)
-    if sys is not None:
-        if sys.tier0:
-            meta_bits.append("tier 0")
-        meta_bits.append(f"blast {sys.blast_radius}")
-    owner = app.graph.resolve(node_id)
-    if owner.id != "unknown":
-        meta_bits.append(owner.id)
-    else:
-        meta_bits.append("unowned")
-    via = parents.get(node_id) or []
-    if via:
-        meta_bits.append("via " + _caption(via[0]))
-    meta_bits.append(node_id)
+    accent_rect = ""
+    if accent:
+        accent_rect = (
+            f'<rect class="node-accent" x="{-_HW}" y="{-_HH + 8}" width="3.5" height="{_NH - 16}" '
+            f'rx="1.5" fill="{accent}"/>'
+        )
 
-    live = ""
-    if recs:
-        live = f'<div class="sys-live">{_open_signals(recs[0])}</div>'
-
-    agent_bits = []
-    seen = set()
-    for pin in pins.get(node_id, []):
+    agents = pins.get(node_id) or []
+    seen = []
+    for pin in agents:
         if pin["name"] in seen:
             continue
-        seen.add(pin["name"])
-        agent_bits.append(_e(pin["name"]))
-    agents = (
-        f'<div class="sys-agents">{_e(" · ".join(agent_bits))}</div>' if agent_bits else ""
-    )
+        seen.append(pin["name"])
+    agent_title = _e(" · ".join(f"{p['name']} ({p['note']})" for p in agents[:3]))
+    status = agents[0]["status"] if agents else ""
+    dot_fill = {"working": "#8a5a0f", "blocked": "#a13232", "complete": "#17714a"}.get(status, "")
+    live = ""
+    if dot_fill:
+        live = (
+            f'<circle class="node-live" cx="{_HW - 12}" cy="{-_HH + 12}" r="3.5" '
+            f'fill="{dot_fill}"><title>{agent_title}</title></circle>'
+        )
 
     inner = f"""
-      <div class="sys-name">{_e(name)}</div>
-      <div class="sys-meta">{_e(" · ".join(meta_bits))}</div>
+      <rect class="node-plate" x="{-_HW}" y="{-_HH}" width="{_NW}" height="{_NH}" rx="12"/>
+      {accent_rect}
+      <g transform="translate({-_HW + 18},{-2})">{_mark(node['kind'], ink)}</g>
+      <text class="node-name" x="{-_HW + 38}" y="-2">{_e(name)}</text>
+      <text class="node-meta" x="{-_HW + 38}" y="14">{_e(meta)}</text>
       {live}
-      {agents}
     """
-    if href:
-        return f'<a class="sys{on}" href="{_e(href)}">{inner}</a>'
-    return f'<div class="sys{muted}{on}">{inner}</div>'
+    tag = "a" if href else "g"
+    href_attr = f' href="{_e(href)}"' if href else ""
+    return (
+        f'<{tag} class="node{on}{hot}{"" if href else " muted"}"{href_attr} '
+        f'transform="translate({node["x"]},{node["y"]})">{inner}</{tag}>'
+    )
 
 
 def render_topology(
@@ -218,7 +272,7 @@ def render_topology(
 ) -> str:
     inventory: Inventory = app.inventory
     pins = pins_for(app, agents)
-    parents = _parents()
+    nodes = _index()
     open_by_target: Dict[str, List[ChangeRecord]] = {}
     for record in app.queue():
         open_by_target.setdefault(record.signal.target, []).append(record)
@@ -227,39 +281,56 @@ def render_topology(
         href_for.setdefault(record.signal.target, f"/change/{record.id}")
     for record in app.records():
         href_for.setdefault(record.signal.target, f"/change/{record.id}")
+    open_targets = set(open_by_target)
 
-    by_zone: Dict[str, List[dict]] = {zid: [] for zid, _ in _LANES}
-    for node in _FABRIC:
-        by_zone.setdefault(node["zone"], []).append(node)
+    zones = []
+    for z in _ZONES:
+        zones.append(
+            f"""<g class="topo-zone">
+              <rect x="{z['x']}" y="{z['y']}" width="{z['w']}" height="{z['h']}" rx="16"/>
+              <text x="{z['x'] + 16}" y="{z['y'] + 22}">{_e(z['label'])}</text>
+            </g>"""
+        )
 
-    lanes = []
-    for zid, label in _LANES:
-        nodes = by_zone.get(zid) or []
-        rows = "".join(
-            _sys_row(
-                node,
-                inventory=inventory,
-                app=app,
-                pins=pins,
-                open_by_target=open_by_target,
-                href_for=href_for,
-                parents=parents,
-                selected=selected,
-            )
-            for node in nodes
+    links = []
+    for a_id, b_id in _LINKS:
+        a, b = nodes[a_id], nodes[b_id]
+        x1, y1, x2, y2 = _ports(a, b)
+        hot = a_id in open_targets or b_id in open_targets
+        cls = "topo-link hot" if hot else "topo-link"
+        links.append(f'<path class="{cls}" d="{_elbow(x1, y1, x2, y2)}"/>')
+
+    plates = [
+        _node(
+            node,
+            inventory=inventory,
+            app=app,
+            pins=pins,
+            open_by_target=open_by_target,
+            href_for=href_for,
+            selected=selected,
         )
-        lanes.append(
-            f"""<section class="lane">
-              <header class="lane-head">
-                <h2>{_e(label)}</h2>
-                <span class="note">{len(nodes)}</span>
-              </header>
-              {rows}
-            </section>"""
-        )
+        for node in _FABRIC
+    ]
+
+    legend = """
+    <g class="topo-legend" transform="translate(32,708)">
+      <rect class="node-accent" x="0" y="-6" width="3.5" height="12" rx="1.5" fill="#a13232"/>
+      <text x="12" y="3">Open change</text>
+      <circle cx="118" cy="0" r="3.5" fill="#8a5a0f"/>
+      <text x="128" y="3">Agent on this system</text>
+      <path class="topo-link" d="M268,-0.5 H308"/>
+      <text x="316" y="3">Path</text>
+    </g>
+    """
 
     return f"""
     <div class="fabric">
-      <div class="lanes">{''.join(lanes)}</div>
+      <svg class="topo" viewBox="0 0 1200 740" role="img" aria-label="Infrastructure map">
+        {''.join(zones)}
+        {''.join(links)}
+        {''.join(plates)}
+        {legend}
+      </svg>
     </div>
     """

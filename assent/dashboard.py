@@ -316,10 +316,14 @@ select.profile:hover { border-color: var(--line-2); }
 /* ---------------------------------------------------------------- thread */
 .thread-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .thread-head {
-  padding: var(--s5) var(--s5) var(--s4);
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--s4);
+  padding: var(--s4) var(--s5);
   border-bottom: 1px solid var(--line);
 }
-.thread-head-inner { max-width: 780px; margin: 0 auto; }
+.thread-head-inner { min-width: 0; flex: 1; }
+.thread-head-actions { flex: none; padding-top: 2px; }
+.gate-btn.on { background: var(--n2); border-color: var(--ink-3); }
 .thread-head h1 {
   font-family: var(--sans); font-size: 22px; font-weight: 600;
   letter-spacing: -0.025em; line-height: 1.2; margin: var(--s2) 0 6px;
@@ -365,19 +369,26 @@ select.profile:hover { border-color: var(--line-2); }
 }
 .fact .v { font-size: var(--t-body); font-weight: 550; margin-top: 3px; line-height: 1.4; }
 
-.gate-fold {
-  flex: 0 1 auto; margin: 0;
-  border-top: 1px solid var(--line); background: var(--n1);
+.thread-body {
+  flex: 1; min-height: 0;
+  display: grid; grid-template-columns: minmax(0, 1fr) 0px;
+  transition: grid-template-columns 240ms var(--ease);
 }
-.gate-fold > summary {
-  margin: 0; padding: 11px var(--s5);
-  border-bottom: 0; max-width: none;
+.thread-view.gate-open .thread-body {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
 }
-.gate-fold[open] > summary { border-bottom: 1px solid var(--line); }
-.gate-fold-inner {
-  max-width: 780px; margin: 0 auto;
-  padding: var(--s3) var(--s5) var(--s4);
-  max-height: 42vh; overflow-y: auto;
+.gate-drawer {
+  min-height: 0; overflow: hidden;
+  border-left: 1px solid transparent; background: var(--n1);
+}
+.thread-view.gate-open .gate-drawer { border-left-color: var(--line); }
+.gate-drawer-inner {
+  width: 400px; max-width: 100%; height: 100%;
+  overflow-y: auto; padding: var(--s4);
+}
+.gate-drawer-inner h2 {
+  margin: 0 0 var(--s3); font-size: var(--t-meta); font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3);
 }
 
 .composer { border-top: 1px solid var(--line); padding: var(--s3) var(--s5) var(--s5); background: var(--n0); }
@@ -603,52 +614,27 @@ details.trace pre {
 
 .fabric {
   border: 1px solid var(--line); border-radius: var(--r-lg);
-  overflow: hidden; background: var(--n0);
+  overflow: hidden; background: var(--n1);
 }
-.lanes {
-  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0; border-bottom: 1px solid var(--line);
+.topo { width: 100%; height: auto; display: block; background: var(--n1); }
+.topo-zone rect { fill: #fcfcfb; stroke: var(--line); stroke-width: 1; }
+.topo-zone text {
+  font-size: 10px; font-weight: 650; letter-spacing: 0.12em;
+  text-transform: uppercase; fill: #86898f; font-family: var(--sans);
 }
-.lane {
-  min-width: 0; padding: var(--s3);
-  border-right: 1px solid var(--line);
-  display: flex; flex-direction: column; gap: 2px;
+.topo-link { fill: none; stroke: #d4d4ce; stroke-width: 1.2; }
+.topo-link.hot { stroke: color-mix(in srgb, var(--accent) 45%, #d4d4ce); stroke-width: 1.45; }
+.node { cursor: pointer; }
+.node.muted { cursor: default; }
+.node-plate { fill: #ffffff; stroke: var(--line-2); stroke-width: 1; }
+.node:hover .node-plate { stroke: #b8b8b2; }
+.node.on .node-plate { stroke: var(--ink); stroke-width: 1.35; }
+.node-name {
+  font-size: 12px; font-weight: 600; fill: #17181a;
+  font-family: var(--sans); letter-spacing: -0.01em;
 }
-.lane:last-child { border-right: 0; }
-.lane-head {
-  display: flex; align-items: baseline; justify-content: space-between;
-  gap: var(--s2); padding: 2px 6px 10px; margin-bottom: 6px;
-  border-bottom: 1px solid var(--line);
-}
-.lane-head h2 {
-  margin: 0; font-size: var(--t-micro); font-weight: 650;
-  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3);
-}
-.lane-head .note { font-size: var(--t-micro); color: var(--ink-3); }
-.sys {
-  display: block; padding: 10px;
-  border-radius: var(--r-md); border: 1px solid transparent;
-  transition: background 140ms var(--ease), border-color 140ms var(--ease);
-}
-.sys:hover { background: var(--n2); }
-.sys.on { background: var(--n2); border-color: var(--line); }
-.sys-name {
-  font-size: var(--t-small); font-weight: 600; letter-spacing: -0.01em;
-  line-height: 1.35;
-}
-.sys-meta {
-  font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
-  margin-top: 3px; line-height: 1.45;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.sys-live { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-.sys-agents { font-size: var(--t-micro); color: var(--ink-2); margin-top: 6px; line-height: 1.4; }
-.sys.muted { opacity: 0.72; }
-
-@media (max-width: 1100px) {
-  .lanes { grid-template-columns: 1fr 1fr; }
-  .lane { border-bottom: 1px solid var(--line); }
-}
+.node-meta { font-size: 10px; fill: #86898f; font-family: var(--sans); }
+.topo-legend text { font-size: 11px; fill: #86898f; font-family: var(--sans); }
 
 .muted { color: var(--ink-3); }
 .chip {
@@ -681,12 +667,6 @@ details.trace pre {
 .fold[open] > summary h2::before { transform: rotate(45deg); }
 .fold > summary .note { font-size: var(--t-meta); color: var(--ink-3); }
 .fold-body { overflow: hidden; }
-.fold.gate-fold { margin: 0; }
-.fold.gate-fold > summary {
-  margin: 0; padding: 11px var(--s5);
-  border-bottom: 0; max-width: none;
-}
-.fold.gate-fold[open] > summary { border-bottom: 1px solid var(--line); }
 
 @media (max-width: 900px) {
   .shell { grid-template-columns: 0 1fr; }
@@ -741,6 +721,25 @@ _NAV_SCRIPT = """
       sc.scrollTop = sc.scrollHeight;
       var reply = document.getElementById('reply');
       if (reply) reply.scrollIntoView({ block: 'nearest' });
+    }
+
+    var tv = document.querySelector('.thread-view');
+    var gateBtn = document.querySelector('[data-gate-toggle]');
+    if (tv && gateBtn) {
+      var setGate = function (open) {
+        tv.classList.toggle('gate-open', open);
+        gateBtn.classList.toggle('on', open);
+        gateBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        try { localStorage.setItem('assent-gate', open ? 'open' : 'closed'); } catch (e) {}
+      };
+      var start = location.hash === '#gate';
+      try {
+        if (!start && localStorage.getItem('assent-gate') === 'open') start = true;
+      } catch (e) {}
+      setGate(start);
+      gateBtn.addEventListener('click', function () {
+        setGate(!tv.classList.contains('gate-open'));
+      });
     }
   });
 })();
@@ -1079,18 +1078,14 @@ def _gate_panel(record: ChangeRecord) -> str:
         },
         indent=2,
     )
-    state = _STATE_LABEL.get(record.state, record.state.value)
     return f"""
-    <details class="fold gate-fold" data-fold="gate">
-      <summary>
+    <aside class="gate-drawer" id="gate-panel">
+      <div class="gate-drawer-inner">
         <h2>Gated remediation</h2>
-        <span class="note">{_e(state)} · expand to decide</span>
-      </summary>
-      <div class="gate-fold-inner">
         {_card_for(record)}
         <details class="trace"><summary>Agent reasoning trace</summary><pre>{_e(trace_json)}</pre></details>
       </div>
-    </details>"""
+    </aside>"""
 
 
 def _thread_workspace(record: Optional[ChangeRecord], extras: Optional[Sequence[dict]] = None) -> str:
@@ -1113,9 +1108,16 @@ def _thread_workspace(record: Optional[ChangeRecord], extras: Optional[Sequence[
             <span>routed to {_e(assignee.name)} · {_e(assignee.subtitle)}</span>
           </div>
         </div>
+        <div class="thread-head-actions">
+          <button class="btn gate-btn" type="button" data-gate-toggle aria-expanded="false" aria-controls="gate-panel">
+            Remediation
+          </button>
+        </div>
       </div>
-      <div class="scroll"><div class="scroll-inner">{_thread_messages(record, extras)}</div></div>
-      {_gate_panel(record)}
+      <div class="thread-body">
+        <div class="scroll"><div class="scroll-inner">{_thread_messages(record, extras)}</div></div>
+        {_gate_panel(record)}
+      </div>
       <form class="composer" method="post" action="/ask">
         <input type="hidden" name="id" value="{_e(record.id)}">
         <div class="composer-box">
@@ -1298,8 +1300,8 @@ def _infra_workspace(app: Assent, selected_id: Optional[str]) -> str:
       <div class="page-head">
         <div>
           <h1>Infrastructure</h1>
-          <p class="lede">Systems Assent can act on, grouped by environment. An open
-          change is listed on the row — click through to its thread.</p>
+          <p class="lede">A map of systems Assent can act on. A mark on a node is an
+          open change; a dot means an agent is on it. Click through to the thread.</p>
         </div>
       </div>
       <div class="roster">{''.join(items)}</div>

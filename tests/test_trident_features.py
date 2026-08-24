@@ -93,9 +93,9 @@ def test_overview_lists_inventory():
     assert "payments-api" in page or "Payments API" in page
     assert "Infrastructure" in page
     assert "class=\"fabric\"" in page or 'class="fabric"' in page
+    assert "class=\"topo\"" in page or 'class="topo"' in page
     assert "Production" in page
-    assert "Proposer" in page
-    assert "pt-canvas" not in page
+    assert "Proposer" in page or "node-live" in page
 
 
 def test_change_package_page():
@@ -106,9 +106,10 @@ def test_change_package_page():
     assert "Executive summary" in page
     assert "Agent reasoning trace" in page
     assert "Gated remediation" in page
-    assert 'data-fold="gate"' in page
-    assert 'data-fold="gate" open' not in page
-    assert page.find('class="scroll"') < page.find('data-fold="gate"') < page.find('class="composer"')
+    assert 'data-gate-toggle' in page
+    assert "gate-drawer" in page
+    assert 'data-fold="gate"' not in page
+    assert page.find("Remediation") < page.find('class="scroll"')
 
 
 def test_thread_reply_stays_pinned_to_latest():
@@ -124,7 +125,7 @@ def test_thread_reply_stays_pinned_to_latest():
     assert 'id="reply"' in page
     assert "has-reply" in page
     assert "why was this gated?" in page
-    assert page.find("why was this gated?") < page.find('data-fold="gate"')
+    assert 'data-gate-toggle' in page
 
 
 def test_approvals_scope_you_vs_team():
