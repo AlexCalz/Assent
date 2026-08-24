@@ -52,6 +52,9 @@ def test_mission_dashboard_renders_chat_shell():
     assert "Security Operations Lead" in page
     assert "select class=\"profile\"" not in page
     assert "wordmark\">Assent" in page or ">Assent</span>" in page
+    assert 'class="state"' not in page
+    assert "imp-critical" not in page
+    assert "thread-row" in page
 
 
 def test_agents_are_labelled_as_agents_people_get_job_titles():
@@ -150,5 +153,8 @@ def test_approvals_inbox_and_audit_are_collapsible():
     page = render_app(app, actor="you", profile="cloud", tool="approvals")
     assert 'data-fold="inbox"' in page
     assert 'data-fold="audit"' in page
-    assert "data-glass-toggle" in page
-    assert "imp-critical" in page or "imp-high" in page
+    assert 'action="/scope"' in page
+    assert ">You<" in page and ">Team<" in page
+    assert "data-glass-toggle" not in page
+    assert "imp-critical" not in page and "imp-high" not in page
+    assert 'class="sev sev-' in page

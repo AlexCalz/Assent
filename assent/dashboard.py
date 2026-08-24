@@ -213,34 +213,19 @@ html[data-nav="collapsed"] .rail-inner { opacity: 0; transform: translateX(-12px
 .threads::-webkit-scrollbar-thumb { background: var(--n4); border-radius: 8px; }
 
 .thread-row {
-  display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: var(--s2);
-  align-items: start; padding: 9px 10px; border-radius: var(--r-md);
-  transition: background 140ms var(--ease), border-color 140ms var(--ease);
+  display: block;
+  padding: 10px 12px; border-radius: var(--r-md);
+  transition: background 140ms var(--ease);
   position: relative;
-  border: 2.5px solid transparent;
 }
-.thread-row.imp-critical { border-color: var(--escalate); background: color-mix(in srgb, var(--escalate) 6%, transparent); }
-.thread-row.imp-high { border-color: var(--route); }
-.thread-row.imp-settled { border-color: color-mix(in srgb, var(--auto) 55%, var(--line)); }
-.thread-row.imp-quiet { border-color: var(--line); }
 .thread-row:hover { background: var(--n3); }
-.thread-row.on { background: var(--n0); box-shadow: var(--shadow-1), 0 0 0 1px var(--line); }
-.thread-row .state {
-  width: 7px; height: 7px; border-radius: 50%; margin: 5px 0 0 3px;
-  background: var(--n4); flex: none;
-}
-.thread-row.open .state { background: var(--route); }
-.thread-row.escalated .state {
-  background: var(--escalate);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--escalate) 16%, transparent);
-}
-.thread-row.auto .state { background: var(--auto); }
+.thread-row.on { background: var(--n0); }
 .thread-row .t, .thread-row .p {
   display: block; min-width: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .thread-row .t {
-  font-size: var(--t-body); font-weight: 550; line-height: 1.35; letter-spacing: -0.005em;
+  font-size: var(--t-body); font-weight: 500; line-height: 1.35; letter-spacing: -0.005em;
 }
 .thread-row .p {
   font-size: var(--t-meta); color: var(--ink-3); margin-top: 2px; line-height: 1.4;
@@ -331,20 +316,13 @@ select.profile:hover { border-color: var(--line-2); }
 /* ---------------------------------------------------------------- thread */
 .thread-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .thread-head {
-  border: 3px solid var(--line);
-  border-radius: var(--r-lg);
-  margin: var(--s4) var(--s5) 0;
-  padding: var(--s5);
-  background: var(--n0);
+  padding: var(--s5) var(--s5) var(--s4);
+  border-bottom: 1px solid var(--line);
 }
-.thread-head.imp-critical { border-color: var(--escalate); }
-.thread-head.imp-high { border-color: var(--route); }
-.thread-head.imp-settled { border-color: var(--auto); }
-.thread-head.imp-quiet { border-color: var(--line-2); }
 .thread-head-inner { max-width: 780px; margin: 0 auto; }
 .thread-head h1 {
-  font-family: var(--display); font-size: var(--t-h1); font-weight: 400;
-  letter-spacing: -0.02em; line-height: 1.15; margin: var(--s2) 0 6px;
+  font-family: var(--sans); font-size: 22px; font-weight: 600;
+  letter-spacing: -0.025em; line-height: 1.2; margin: var(--s2) 0 6px;
 }
 .thread-head .sub {
   display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
@@ -455,15 +433,11 @@ select.profile:hover { border-color: var(--line-2); }
 
 .cards { display: flex; flex-direction: column; gap: var(--s3); }
 .acard {
-  border: 3px solid var(--line); border-radius: var(--r-lg);
-  background: var(--n0); box-shadow: var(--shadow-1);
-  transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease), transform 160ms var(--ease);
+  border: 1px solid var(--line); border-radius: var(--r-lg);
+  background: var(--n0);
+  transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease);
 }
-.acard.imp-critical { border-color: var(--escalate); }
-.acard.imp-high { border-color: var(--route); }
-.acard.imp-settled { border-color: var(--auto); }
-.acard.imp-quiet { border-color: var(--line-2); }
-.acard:hover { border-color: var(--line-2); box-shadow: var(--shadow-2); transform: translateY(-1px); }
+.acard:hover { border-color: var(--line-2); box-shadow: var(--shadow-1); }
 .acard-head {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: var(--s4); padding: var(--s4);
@@ -516,6 +490,20 @@ table.tbl .why { color: var(--ink-2); max-width: 30ch; line-height: 1.5; }
 .pill-route { background: var(--route-bg); color: var(--route); }
 .pill-escalate { background: var(--escalate-bg); color: var(--escalate); }
 .pill-triage { background: var(--n3); color: var(--ink-3); }
+.signals { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sev {
+  display: inline-flex; align-items: center;
+  font-size: 11px; font-weight: 650; letter-spacing: 0.04em;
+  text-transform: uppercase; font-variant-numeric: tabular-nums;
+}
+.sev::before {
+  content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  margin-right: 6px; vertical-align: 0.5px; background: currentColor;
+}
+.sev-critical { color: var(--escalate); }
+.sev-high { color: var(--route); }
+.sev-medium { color: var(--ink-2); }
+.sev-low { color: var(--auto); }
 
 .btn {
   appearance: none; border: 1px solid var(--line-2); border-radius: var(--r-md);
@@ -532,10 +520,10 @@ table.tbl .why { color: var(--ink-2); max-width: 30ch; line-height: 1.5; }
 .actions .btn-primary { color: #ffffff; }
 
 /* approval card primitives */
-.card { background: var(--n0); border: 3px solid var(--line); border-radius: var(--r-lg); padding: var(--s4); }
-.card.tone-auto { border-color: var(--auto); }
-.card.tone-route { border-color: var(--route); }
-.card.tone-escalate { border-color: var(--escalate); }
+.card { background: var(--n0); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s4); border-left: 3px solid var(--line-2); }
+.card.tone-auto { border-left-color: var(--auto); }
+.card.tone-route { border-left-color: var(--route); }
+.card.tone-escalate { border-left-color: var(--escalate); }
 .card-head .action-type { margin: var(--s2) 0 2px; font-size: var(--t-h3); letter-spacing: -0.015em; }
 .card-head .stance { margin: 0; color: var(--ink-2); font-size: var(--t-small); line-height: 1.5; }
 .verdict { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
@@ -669,68 +657,6 @@ details.trace pre {
 .fold > summary .note { font-size: var(--t-meta); color: var(--ink-3); }
 .fold-body { overflow: hidden; }
 
-/* ---------------------------------------------------------------- liquid-glass scope control (Apple optical recipe on the web) */
-.glass-toggle {
-  --thumb-x: 4px;
-  --thumb-w: 72px;
-  position: relative;
-  display: inline-flex; align-items: stretch;
-  padding: 4px; gap: 0;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.28);
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.72),
-    inset 0 -1px 0 rgba(255,255,255,0.18),
-    0 1px 2px rgba(23,24,26,0.04),
-    0 10px 28px rgba(23,24,26,0.10);
-  border: 1px solid rgba(255,255,255,0.55);
-  user-select: none; touch-action: none;
-  min-width: 168px;
-}
-.glass-toggle .glass-thumb {
-  position: absolute; top: 4px; bottom: 4px; left: 0;
-  width: var(--thumb-w);
-  transform: translateX(var(--thumb-x)) scale(1.08);
-  transform-origin: center;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.42));
-  backdrop-filter: blur(18px) saturate(200%);
-  -webkit-backdrop-filter: blur(18px) saturate(200%);
-  box-shadow:
-    inset 1px 1px 0 rgba(255,255,255,0.9),
-    inset -1px -1px 0 rgba(255,255,255,0.25),
-    0 8px 20px rgba(23,24,26,0.12);
-  filter: url(#assent-glass);
-  pointer-events: none;
-  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1), width 420ms cubic-bezier(0.22, 1, 0.36, 1);
-  z-index: 0;
-}
-.glass-toggle.dragging .glass-thumb { transition: none; }
-.glass-toggle button {
-  position: relative; z-index: 1;
-  flex: 1; border: 0; background: transparent;
-  padding: 8px 18px; border-radius: 999px;
-  font-size: 13px; font-weight: 550; color: var(--ink-2);
-  transform: scale(1);
-  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1), color 200ms var(--ease);
-}
-.glass-toggle button.on {
-  color: var(--ink);
-  font-weight: 650;
-  transform: scale(1.12);
-}
-@media (prefers-reduced-transparency: reduce) {
-  .glass-toggle, .glass-toggle .glass-thumb {
-    backdrop-filter: none; -webkit-backdrop-filter: none;
-    background: var(--n0);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .glass-toggle .glass-thumb, .glass-toggle button { transition: none; }
-}
-
 @media (max-width: 900px) {
   .shell { grid-template-columns: 0 1fr; }
   .rail { display: none; }
@@ -777,71 +703,6 @@ _NAV_SCRIPT = """
       ta.addEventListener('input', grow);
       grow();
     });
-
-    var toggle = document.querySelector('[data-glass-toggle]');
-    if (!toggle) return;
-    var form = toggle.closest('form');
-    var thumb = toggle.querySelector('.glass-thumb');
-    var buttons = Array.prototype.slice.call(toggle.querySelectorAll('button[data-scope]'));
-    var dragging = false;
-
-    function layout(animate) {
-      var on = toggle.querySelector('button.on') || buttons[0];
-      var track = toggle.getBoundingClientRect();
-      var r = on.getBoundingClientRect();
-      if (!animate) toggle.classList.add('dragging');
-      toggle.style.setProperty('--thumb-x', (r.left - track.left) + 'px');
-      toggle.style.setProperty('--thumb-w', r.width + 'px');
-      if (!animate) requestAnimationFrame(function () { toggle.classList.remove('dragging'); });
-    }
-
-    function select(value, submit) {
-      buttons.forEach(function (b) { b.classList.toggle('on', b.dataset.scope === value); });
-      toggle.dataset.value = value;
-      layout(true);
-      if (submit && form) {
-        var input = form.querySelector('input[name="scope"]');
-        if (input) input.value = value;
-        form.submit();
-      }
-    }
-
-    buttons.forEach(function (b) {
-      b.addEventListener('click', function (e) {
-        e.preventDefault();
-        select(b.dataset.scope, true);
-      });
-    });
-
-    toggle.addEventListener('pointerdown', function (e) {
-      if (e.button !== 0) return;
-      dragging = true;
-      toggle.classList.add('dragging');
-      toggle.setPointerCapture(e.pointerId);
-    });
-    toggle.addEventListener('pointermove', function (e) {
-      if (!dragging) return;
-      var track = toggle.getBoundingClientRect();
-      var w = parseFloat(getComputedStyle(toggle).getPropertyValue('--thumb-w')) || 72;
-      var x = Math.min(Math.max(e.clientX - track.left - w / 2, 4), track.width - w - 4);
-      toggle.style.setProperty('--thumb-x', x + 'px');
-      var mid = track.left + track.width / 2;
-      buttons.forEach(function (b) { b.classList.toggle('on', (e.clientX >= mid) === (b.dataset.scope === 'team')); });
-    });
-    function endDrag(e) {
-      if (!dragging) return;
-      dragging = false;
-      toggle.classList.remove('dragging');
-      var track = toggle.getBoundingClientRect();
-      var next = (e.clientX >= track.left + track.width / 2) ? 'team' : 'you';
-      var current = toggle.dataset.value;
-      if (next !== current) select(next, true);
-      else layout(true);
-    }
-    toggle.addEventListener('pointerup', endDrag);
-    toggle.addEventListener('pointercancel', endDrag);
-    window.addEventListener('resize', function () { layout(false); });
-    layout(false);
   });
 })();
 """
@@ -863,26 +724,12 @@ def _pill_for(record: ChangeRecord) -> str:
     return f'<span class="pill pill-{key}">{label}</span>'
 
 
-def _row_class(record: ChangeRecord) -> str:
-    if record.state is ChangeState.ESCALATED:
-        return "escalated open"
-    if record.state.open:
-        return "open"
-    if record.state is ChangeState.AUTO_EXECUTED:
-        return "auto"
-    return ""
-
-
-def _importance(record: ChangeRecord) -> str:
-    """Visual weight of an alert box — driven by severity and gate stance, not decoration."""
-    sev = (record.signal.severity or "").lower()
-    if record.state is ChangeState.ESCALATED or sev == "critical":
-        return "critical"
-    if sev == "high" or record.state.open:
-        return "high"
-    if record.state in {ChangeState.AUTO_EXECUTED, ChangeState.EXECUTED}:
-        return "settled"
-    return "quiet"
+def _sev_chip(record: ChangeRecord) -> str:
+    severity = (record.signal.severity or "medium").lower()
+    if severity not in {"critical", "high", "medium", "low"}:
+        severity = "medium"
+    label = {"critical": "Critical", "high": "High", "medium": "Medium", "low": "Low"}[severity]
+    return f'<span class="sev sev-{severity}">{label}</span>'
 
 
 def _titlecase_action(raw: str) -> str:
@@ -953,12 +800,9 @@ def _rail(app: Assent, selected_id: Optional[str], tool: str) -> str:
         else:
             href = f"/change/{quote(r.id)}"
         rows.append(
-            f"""<a class="thread-row {_row_class(r)} imp-{_importance(r)}{on}" href="{href}">
-              <span class="state"></span>
-              <span>
-                <span class="t">{_e(_alert_title(r))}</span>
-                <span class="p">{_e(_alert_preview(r))}</span>
-              </span>
+            f"""<a class="thread-row{on}" href="{href}">
+              <span class="t">{_e(_alert_title(r))}</span>
+              <span class="p">{_e(_alert_preview(r))}</span>
             </a>"""
         )
     body = "".join(rows) or '<div class="empty">No alerts yet.</div>'
@@ -1030,18 +874,6 @@ def _shell(
 <script>{_NAV_SCRIPT}</script>
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <defs>
-    <filter id="assent-glass" x="-8%" y="-8%" width="116%" height="116%" color-interpolation-filters="sRGB">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="0.7" result="blur"/>
-      <feSpecularLighting in="blur" surfaceScale="5" specularConstant="0.85" specularExponent="28" lighting-color="#ffffff" result="spec">
-        <fePointLight x="-60" y="-80" z="200"/>
-      </feSpecularLighting>
-      <feComposite in="spec" in2="SourceAlpha" operator="in" result="specIn"/>
-      <feBlend in="SourceGraphic" in2="specIn" mode="screen"/>
-    </filter>
-  </defs>
-</svg>
 <div class="shell">
   {_rail(app, selected_id, tool)}
   <div class="main">
@@ -1216,13 +1048,12 @@ def _thread_workspace(record: Optional[ChangeRecord], extras: Optional[Sequence[
     assignee = _assignee_for(record)
     return f"""
     <div class="thread-view">
-      <div class="thread-head imp-{_importance(record)}">
+      <div class="thread-head">
         <div class="thread-head-inner">
-          {_pill_for(record)}
+          <div class="signals">{_sev_chip(record)}{_pill_for(record)}</div>
           <h1>{_e(_alert_title(record))}</h1>
           <div class="sub">
             <code>{_e(record.id)}</code>
-            <span>severity {_e(record.signal.severity)}</span>
             <span>routed to {_e(assignee.name)} · {_e(assignee.subtitle)}</span>
           </div>
         </div>
@@ -1266,13 +1097,14 @@ def _approvals_workspace(app: Assent, actor: str, selected_id: Optional[str], sc
         href = f"/approvals?c={quote(r.id)}" if not expanded else f"/change/{quote(r.id)}"
         cta = "Open thread" if expanded else "Review"
         cards.append(
-            f"""<div class="acard imp-{_importance(r)}">
+            f"""<div class="acard">
               <div class="acard-head">
                 <div>
                   <div class="acard-title">{_e(_alert_title(r))}</div>
                   <div class="acard-cmd">{_e(r.id)} · {_e(cmd)}</div>
                 </div>
-                <div style="display:flex; align-items:center; gap:12px">
+                <div class="signals">
+                  {_sev_chip(r)}
                   {_pill_for(r)}
                   <a class="btn btn-secondary" href="{href}">{cta}</a>
                 </div>
@@ -1341,14 +1173,10 @@ def _approvals_workspace(app: Assent, actor: str, selected_id: Optional[str], sc
           <p class="lede">Every write is routed to a named, authoritative human — never a
           shared queue. Audit follows the same scope you are viewing.</p>
         </div>
-        <form method="post" action="/scope" class="glass-form">
+        <form class="segment" method="post" action="/scope">
           <input type="hidden" name="next" value="/approvals">
-          <input type="hidden" name="scope" value="{_e(scope)}">
-          <div class="glass-toggle" data-glass-toggle data-value="{_e(scope)}" role="tablist" aria-label="Approval scope">
-            <div class="glass-thumb" aria-hidden="true"></div>
-            <button class="{you_on}" type="button" data-scope="you">You</button>
-            <button class="{team_on}" type="button" data-scope="team">Team</button>
-          </div>
+          <button class="{you_on}" type="submit" name="scope" value="you">You</button>
+          <button class="{team_on}" type="submit" name="scope" value="team">Team</button>
         </form>
       </div>
 
