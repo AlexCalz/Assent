@@ -285,7 +285,7 @@ class _Handler(BaseHTTPRequestHandler):
                     thread = chats.setdefault(change_id, [])
                     thread.append({"role": "user", "text": question})
                     thread.append({"role": "assistant", "text": answer_question(record, question)})
-                self._redirect(f"/change/{change_id}")
+                self._redirect(f"/change/{change_id}#reply")
                 return
             self._not_found()
             return

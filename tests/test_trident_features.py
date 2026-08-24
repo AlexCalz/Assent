@@ -92,8 +92,10 @@ def test_overview_lists_inventory():
     page = render_overview(app, actor="alex", profile="cloud")
     assert "payments-api" in page or "Payments API" in page
     assert "Infrastructure" in page
-    assert "pt-canvas" in page
+    assert "class=\"fabric\"" in page or 'class="fabric"' in page
+    assert "Production" in page
     assert "Proposer" in page
+    assert "pt-canvas" not in page
 
 
 def test_change_package_page():
@@ -104,6 +106,25 @@ def test_change_package_page():
     assert "Executive summary" in page
     assert "Agent reasoning trace" in page
     assert "Gated remediation" in page
+    assert 'data-fold="gate"' in page
+    assert 'data-fold="gate" open' not in page
+    assert page.find('class="scroll"') < page.find('data-fold="gate"') < page.find('class="composer"')
+
+
+def test_thread_reply_stays_pinned_to_latest():
+    app = demo_app()
+    record = app.queue()[0]
+    page = render_change(
+        app, record, actor="you", profile="cloud",
+        extras=[
+            {"role": "user", "text": "why was this gated?"},
+            {"role": "assistant", "text": "Because the engine escalated."},
+        ],
+    )
+    assert 'id="reply"' in page
+    assert "has-reply" in page
+    assert "why was this gated?" in page
+    assert page.find("why was this gated?") < page.find('data-fold="gate"')
 
 
 def test_approvals_scope_you_vs_team():

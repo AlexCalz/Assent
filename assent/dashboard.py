@@ -331,21 +331,11 @@ select.profile:hover { border-color: var(--line-2); }
 .thread-head .sub code { font-family: var(--mono); font-size: var(--t-meta); }
 
 .scroll { flex: 1; overflow-y: auto; }
-.scroll-inner { max-width: 780px; margin: 0 auto; padding: var(--s5) var(--s5) var(--s7); }
+.scroll-inner { max-width: 780px; margin: 0 auto; padding: var(--s5) var(--s5) var(--s4); }
 
-.msg {
-  padding: 0 0 var(--s5);
-  animation: rise 420ms var(--ease) both;
-}
-.msg:nth-child(1) { animation-delay: 20ms; }
-.msg:nth-child(2) { animation-delay: 60ms; }
-.msg:nth-child(3) { animation-delay: 100ms; }
-.msg:nth-child(4) { animation-delay: 140ms; }
-.msg:nth-child(5) { animation-delay: 180ms; }
-.msg:nth-child(n+6) { animation-delay: 220ms; }
-@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.msg { padding: 0 0 var(--s5); }
+.thread-view.has-reply .msg { animation: none; }
 @media (prefers-reduced-motion: reduce) {
-  .msg { animation: none; }
   .shell, .rail-inner { transition: none; }
 }
 
@@ -374,6 +364,21 @@ select.profile:hover { border-color: var(--line-2); }
   color: var(--ink-3); font-weight: 600;
 }
 .fact .v { font-size: var(--t-body); font-weight: 550; margin-top: 3px; line-height: 1.4; }
+
+.gate-fold {
+  flex: 0 1 auto; margin: 0;
+  border-top: 1px solid var(--line); background: var(--n1);
+}
+.gate-fold > summary {
+  margin: 0; padding: 11px var(--s5);
+  border-bottom: 0; max-width: none;
+}
+.gate-fold[open] > summary { border-bottom: 1px solid var(--line); }
+.gate-fold-inner {
+  max-width: 780px; margin: 0 auto;
+  padding: var(--s3) var(--s5) var(--s4);
+  max-height: 42vh; overflow-y: auto;
+}
 
 .composer { border-top: 1px solid var(--line); padding: var(--s3) var(--s5) var(--s5); background: var(--n0); }
 .composer-box {
@@ -577,53 +582,73 @@ details.trace pre {
 
 /* ---------------------------------------------------------------- infra */
 .infra { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
-.infra-inner { max-width: 1180px; width: 100%; margin: 0 auto; padding: var(--s5) var(--s5) var(--s6); }
-.roster { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--s2); margin: var(--s4) 0; }
+.infra-inner { max-width: 1280px; width: 100%; margin: 0 auto; padding: var(--s5) var(--s5) var(--s6); }
+.roster {
+  display: flex; flex-wrap: wrap;
+  border: 1px solid var(--line); border-radius: var(--r-lg);
+  overflow: hidden; background: var(--n0); margin: 0 0 var(--s5);
+}
 .roster-item {
   display: flex; align-items: center; gap: var(--s2);
-  border: 1px solid var(--line); border-radius: var(--r-md);
-  padding: 10px var(--s3); background: var(--n0);
+  flex: 1 1 200px; min-width: 200px;
+  border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  padding: 12px 14px; background: var(--n0);
 }
 .roster-item .status-dot { width: 6px; height: 6px; border-radius: 50%; margin-left: auto; flex: none; }
-.dot-working { background: var(--route); animation: blink 2.2s ease-in-out infinite; }
-.dot-blocked { background: var(--escalate); animation: blink 1.6s ease-in-out infinite; }
+.dot-working { background: var(--route); }
+.dot-blocked { background: var(--escalate); }
 .dot-complete { background: var(--auto); }
 .dot-idle { background: var(--n4); }
-@keyframes blink { 50% { opacity: 0.35; } }
 .roster-item .detail { font-size: var(--t-micro); color: var(--ink-3); margin-top: 1px; }
 
-.pt-wrap { margin-top: var(--s2); }
-.pt-canvas {
-  width: 100%; height: auto;
-  border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--n1);
-  box-shadow: var(--shadow-1);
+.fabric {
+  border: 1px solid var(--line); border-radius: var(--r-lg);
+  overflow: hidden; background: var(--n0);
 }
-.pt-caption {
-  text-align: center; font-family: var(--sans); line-height: 1.2;
-  overflow: hidden;
+.lanes {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0; border-bottom: 1px solid var(--line);
 }
-.pt-name {
-  font-size: 11.5px; font-weight: 650; letter-spacing: -0.01em;
-  color: #17181a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.lane {
+  min-width: 0; padding: var(--s3);
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 2px;
 }
-.pt-env {
-  font-size: 9.5px; color: #6d7076; margin-top: 2px;
-  letter-spacing: 0.01em;
+.lane:last-child { border-right: 0; }
+.lane-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--s2); padding: 2px 6px 10px; margin-bottom: 6px;
+  border-bottom: 1px solid var(--line);
 }
-.pt-zone-label { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; fill: #6d7076; font-family: var(--sans); }
-.pt-link { stroke: #c9c9c3; stroke-width: 1.6; }
-.pt-link.hot { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 5 4; animation: flow 900ms linear infinite; }
-@keyframes flow { to { stroke-dashoffset: -18; } }
-.pt-node { cursor: pointer; }
-.pt-node:hover .plate { filter: brightness(0.985); }
-.agent-pin circle { fill: var(--accent); }
-.agent-pin text { font-size: 8.5px; font-weight: 700; fill: #f2fbf9; font-family: var(--sans); }
-.agent-pin.pin-working circle, circle.pin-working { fill: #8a5a0f; }
-.agent-pin.pin-blocked circle, circle.pin-blocked { fill: #a13232; }
-.agent-pin.pin-complete circle, circle.pin-complete { fill: #17714a; }
-.pt-legend text { font-size: 11px; fill: #56565a; font-family: var(--sans); }
-.pt-legend .legend-pin { fill: var(--accent); }
-.pt-legend .legend-letter { font-size: 8.5px; font-weight: 700; fill: #f2fbf9; }
+.lane-head h2 {
+  margin: 0; font-size: var(--t-micro); font-weight: 650;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3);
+}
+.lane-head .note { font-size: var(--t-micro); color: var(--ink-3); }
+.sys {
+  display: block; padding: 10px;
+  border-radius: var(--r-md); border: 1px solid transparent;
+  transition: background 140ms var(--ease), border-color 140ms var(--ease);
+}
+.sys:hover { background: var(--n2); }
+.sys.on { background: var(--n2); border-color: var(--line); }
+.sys-name {
+  font-size: var(--t-small); font-weight: 600; letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+.sys-meta {
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
+  margin-top: 3px; line-height: 1.45;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sys-live { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.sys-agents { font-size: var(--t-micro); color: var(--ink-2); margin-top: 6px; line-height: 1.4; }
+.sys.muted { opacity: 0.72; }
+
+@media (max-width: 1100px) {
+  .lanes { grid-template-columns: 1fr 1fr; }
+  .lane { border-bottom: 1px solid var(--line); }
+}
 
 .muted { color: var(--ink-3); }
 .chip {
@@ -656,6 +681,12 @@ details.trace pre {
 .fold[open] > summary h2::before { transform: rotate(45deg); }
 .fold > summary .note { font-size: var(--t-meta); color: var(--ink-3); }
 .fold-body { overflow: hidden; }
+.fold.gate-fold { margin: 0; }
+.fold.gate-fold > summary {
+  margin: 0; padding: 11px var(--s5);
+  border-bottom: 0; max-width: none;
+}
+.fold.gate-fold[open] > summary { border-bottom: 1px solid var(--line); }
 
 @media (max-width: 900px) {
   .shell { grid-template-columns: 0 1fr; }
@@ -703,6 +734,14 @@ _NAV_SCRIPT = """
       ta.addEventListener('input', grow);
       grow();
     });
+
+    try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) {}
+    var sc = document.querySelector('.scroll');
+    if (sc && location.hash === '#reply') {
+      sc.scrollTop = sc.scrollHeight;
+      var reply = document.getElementById('reply');
+      if (reply) reply.scrollIntoView({ block: 'nearest' });
+    }
   });
 })();
 """
@@ -932,10 +971,11 @@ def answer_question(record: ChangeRecord, question: str) -> str:
     )
 
 
-def _message(participant, body: str, *, meta: str = "", mine: bool = False) -> str:
+def _message(participant, body: str, *, meta: str = "", mine: bool = False, msgid: str = "") -> str:
     cls = "msg mine" if mine else "msg"
+    ident_attr = f' id="{_e(msgid)}"' if msgid else ""
     return f"""
-    <article class="{cls}">
+    <article class="{cls}"{ident_attr}>
       <div class="msg-head">{ident.identity(participant, meta=meta, is_self=mine)}</div>
       <div class="msg-body">{body}</div>
     </article>"""
@@ -1007,19 +1047,28 @@ def _thread_messages(record: ChangeRecord, extras: Optional[Sequence[dict]] = No
             + (f'<p class="quiet">MITRE context — enrichment only, never a gate input:</p><div>{mitre}</div>' if mitre else ""),
         ))
 
-    for extra in extras or ():
+    extras_list = list(extras or ())
+    for i, extra in enumerate(extras_list):
+        last = i == len(extras_list) - 1
         if extra.get("role") == "user":
             msgs.append(_message(
                 ident.person("you"),
                 f"<p>{_e(extra.get('text', ''))}</p>",
                 mine=True,
+                msgid="reply" if last else "",
             ))
         else:
             msgs.append(_message(
                 ident.AGENTS["assent"],
                 f"<p>{_e(extra.get('text', ''))}</p>",
+                msgid="reply" if last else "",
             ))
 
+    return "".join(msgs)
+
+
+def _gate_panel(record: ChangeRecord) -> str:
+    pkg = build_package(record)
     traces = pkg.agent_trace
     trace_json = json.dumps(
         {
@@ -1030,13 +1079,18 @@ def _thread_messages(record: ChangeRecord, extras: Optional[Sequence[dict]] = No
         },
         indent=2,
     )
-    tail = f"""
-    <div class="subhead"><h2>Gated remediation</h2>
-      <span class="note">{_e(_STATE_LABEL.get(record.state, record.state.value))}</span></div>
-    {_card_for(record)}
-    <details class="trace"><summary>Agent reasoning trace</summary><pre>{_e(trace_json)}</pre></details>
-    """
-    return "".join(msgs) + tail
+    state = _STATE_LABEL.get(record.state, record.state.value)
+    return f"""
+    <details class="fold gate-fold" data-fold="gate">
+      <summary>
+        <h2>Gated remediation</h2>
+        <span class="note">{_e(state)} · expand to decide</span>
+      </summary>
+      <div class="gate-fold-inner">
+        {_card_for(record)}
+        <details class="trace"><summary>Agent reasoning trace</summary><pre>{_e(trace_json)}</pre></details>
+      </div>
+    </details>"""
 
 
 def _thread_workspace(record: Optional[ChangeRecord], extras: Optional[Sequence[dict]] = None) -> str:
@@ -1046,8 +1100,10 @@ def _thread_workspace(record: Optional[ChangeRecord], extras: Optional[Sequence[
           sensor, agents, and the gate decision in order.</div>
         </div></div>"""
     assignee = _assignee_for(record)
+    extras = extras or ()
+    replied = " has-reply" if extras else ""
     return f"""
-    <div class="thread-view">
+    <div class="thread-view{replied}">
       <div class="thread-head">
         <div class="thread-head-inner">
           <div class="signals">{_sev_chip(record)}{_pill_for(record)}</div>
@@ -1059,6 +1115,7 @@ def _thread_workspace(record: Optional[ChangeRecord], extras: Optional[Sequence[
         </div>
       </div>
       <div class="scroll"><div class="scroll-inner">{_thread_messages(record, extras)}</div></div>
+      {_gate_panel(record)}
       <form class="composer" method="post" action="/ask">
         <input type="hidden" name="id" value="{_e(record.id)}">
         <div class="composer-box">
@@ -1241,9 +1298,8 @@ def _infra_workspace(app: Assent, selected_id: Optional[str]) -> str:
       <div class="page-head">
         <div>
           <h1>Infrastructure</h1>
-          <p class="lede">What Assent can see. Zones are environments; a dashed link is a
-          path with an open change. Letters on a device are agents working it right now —
-          click a device to open its thread.</p>
+          <p class="lede">Systems Assent can act on, grouped by environment. An open
+          change is listed on the row — click through to its thread.</p>
         </div>
       </div>
       <div class="roster">{''.join(items)}</div>
