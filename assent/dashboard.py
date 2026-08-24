@@ -391,36 +391,93 @@ select.profile:hover { border-color: var(--line-2); }
   letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3);
 }
 
-.composer { border-top: 1px solid var(--line); padding: var(--s3) var(--s5) var(--s5); background: var(--n0); }
+.composer {
+  border-top: 1px solid var(--line);
+  padding: var(--s4) var(--s5) var(--s4);
+  background: var(--n1);
+}
+.composer-file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .composer-box {
   max-width: 780px; margin: 0 auto;
-  display: flex; gap: var(--s2); align-items: flex-end;
-  border: 1px solid var(--line-2); border-radius: var(--r-xl);
-  padding: var(--s2) var(--s2) var(--s2) var(--s4); background: var(--n0);
-  box-shadow: var(--shadow-2);
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end;
+  border: 1px solid var(--line); border-radius: 28px;
+  padding: 8px 8px 8px 10px; background: var(--n0);
+  box-shadow: var(--shadow-1);
   transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease);
 }
-.composer-box:focus-within { border-color: var(--accent); box-shadow: var(--shadow-3); }
+.composer-box:focus-within { border-color: var(--line-2); box-shadow: var(--shadow-2); }
+.composer-plus {
+  flex: none; width: 28px; height: 28px; margin-bottom: 2px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line-2); border-radius: 50%;
+  background: transparent; color: var(--ink-2);
+}
+.composer-plus:hover { border-color: var(--ink-3); color: var(--ink); background: var(--n1); }
+.composer-plus svg { width: 14px; height: 14px; }
+.composer-pills {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  flex: none; padding-bottom: 3px;
+}
+.composer-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; padding: 0 4px 0 8px; border-radius: 999px;
+  font-size: var(--t-meta); font-weight: 550; letter-spacing: -0.01em;
+  white-space: nowrap; line-height: 1;
+}
+.composer-pill.skill { background: #eceaf8; color: #4b3d9e; }
+.composer-pill.gate { background: var(--n2); color: var(--ink-2); border: 1px solid var(--line); }
+.composer-pill > svg { width: 12px; height: 12px; flex: none; }
+.composer-pill .x {
+  width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; color: inherit; opacity: 0.62;
+}
+.composer-pill .x:hover { opacity: 1; background: rgba(23,24,26,0.07); }
+.composer-pill .x svg { width: 10px; height: 10px; }
 .composer-box textarea {
-  flex: 1; border: 0; resize: none; outline: none; background: transparent;
-  min-height: 24px; max-height: 140px; padding: 7px 0; font-size: var(--t-read); line-height: 1.5;
+  flex: 1 1 140px; min-width: 96px; border: 0; resize: none; outline: none;
+  background: transparent; min-height: 24px; max-height: 140px;
+  padding: 6px 4px 8px; font-size: var(--t-read); line-height: 1.5;
 }
-.composer-box button[type="submit"] {
-  border: 0; background: var(--ink); color: var(--n0);
-  border-radius: var(--r-md); padding: 8px 14px; font-weight: 600; font-size: var(--t-small);
-  transition: transform 140ms var(--ease), opacity 140ms var(--ease);
+.composer-tools {
+  display: flex; align-items: center; gap: 2px;
+  flex: none; margin-left: auto;
 }
-.composer-box button[type="submit"]:hover { transform: translateY(-1px); opacity: 0.92; }
-.composer-box .icon-btn {
-  flex: none; width: 32px; height: 32px; margin-bottom: 1px;
-  color: var(--ink-3);
+.composer-model {
+  position: relative; display: inline-flex; align-items: center; color: var(--ink-2);
 }
-.composer-box .icon-btn:hover { color: var(--ink); background: var(--n2); }
-.composer-box .icon-btn.on,
-.composer-box .icon-btn[aria-pressed="true"] {
-  color: var(--accent); background: var(--accent-2);
+.composer-model select {
+  appearance: none; -webkit-appearance: none;
+  border: 0; background: transparent; color: var(--ink-2);
+  font-size: var(--t-meta); font-weight: 550; letter-spacing: -0.01em;
+  padding: 6px 18px 6px 8px; border-radius: 8px; cursor: pointer; max-width: 168px;
 }
-.composer-hint { max-width: 780px; margin: 6px auto 0; font-size: var(--t-micro); color: var(--ink-3); }
+.composer-model select:hover { color: var(--ink); background: var(--n2); }
+.composer-model .chev {
+  position: absolute; right: 4px; top: 50%; width: 12px; height: 12px;
+  transform: translateY(-50%); pointer-events: none; color: var(--ink-3);
+}
+.composer-mic {
+  flex: none; width: 32px; height: 32px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%; background: transparent; color: var(--ink-3);
+}
+.composer-mic:hover { color: var(--ink); background: var(--n2); }
+.composer-mic.on,
+.composer-mic[aria-pressed="true"] { color: var(--accent); background: var(--accent-2); }
+.composer-mic svg { width: 16px; height: 16px; }
+.composer-send {
+  flex: none; width: 32px; height: 32px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%; background: var(--ink); color: var(--n0);
+}
+.composer-send:hover { opacity: 0.9; }
+.composer-send svg { width: 15px; height: 15px; }
+.composer-hint {
+  max-width: 780px; margin: 8px auto 0;
+  display: flex; justify-content: space-between; gap: var(--s3); flex-wrap: wrap;
+  font-size: var(--t-micro); color: var(--ink-3);
+}
 
 /* ---------------------------------------------------------------- pages */
 .page { flex: 1; overflow-y: auto; }
@@ -788,6 +845,23 @@ _NAV_SCRIPT = """
       });
     }
 
+    document.querySelectorAll('[data-dismiss-pill]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        var pill = btn.closest('[data-pill]');
+        if (pill) pill.remove();
+      });
+    });
+
+    document.querySelectorAll('[data-add-context]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        var form = btn.closest('form');
+        var input = form && form.querySelector('.composer-file');
+        if (input) input.click();
+      });
+    });
+
     try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) {}
     var sc = document.querySelector('.scroll');
     if (sc && location.hash === '#reply') {
@@ -821,6 +895,11 @@ _NAV_SCRIPT = """
 _ICON_PANEL = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M6.2 2.8v10.4" stroke="currentColor" stroke-width="1.3"/></svg>'
 _ICON_PLUS = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.4v9.2M3.4 8h9.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
 _ICON_MIC = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="1.6" width="4" height="7.2" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.8 7.4a4.2 4.2 0 0 0 8.4 0M8 11.6v2.2M5.6 13.8h4.8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>'
+_ICON_SEND = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 12.6V3.8M4.4 7.4 8 3.8l3.6 3.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+_ICON_CHEVRON = '<svg class="chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.4 6.4 8 10l3.6-3.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+_ICON_X = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.4 4.4l7.2 7.2M11.6 4.4l-7.2 7.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
+_ICON_SKILL = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8 9.3 5.7h4.1l-3.3 2.4 1.3 3.9L8 9.6 4.6 12l1.3-3.9-3.3-2.4h4.1z" fill="currentColor"/></svg>'
+_ICON_GATE_SM = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.6 7V5.2A4.4 4.4 0 0 1 8 2.6a4.4 4.4 0 0 1 4.4 2.6V7M4.2 7h7.6v5.4A1.6 1.6 0 0 1 10.2 14H5.8A1.6 1.6 0 0 1 4.2 12.4z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>'
 
 
 # --------------------------------------------------------------------- helpers
@@ -1194,12 +1273,35 @@ def _thread_workspace(record: Optional[ChangeRecord], extras: Optional[Sequence[
       </div>
       <form class="composer" method="post" action="/ask">
         <input type="hidden" name="id" value="{_e(record.id)}">
+        <input class="composer-file" type="file" multiple tabindex="-1" aria-hidden="true">
         <div class="composer-box">
+          <button class="composer-plus" type="button" data-add-context title="Add context" aria-label="Add context">{_ICON_PLUS}</button>
+          <div class="composer-pills">
+            <span class="composer-pill skill" data-pill>
+              {_ICON_SKILL}<span>Incident package</span>
+              <button class="x" type="button" data-dismiss-pill aria-label="Dismiss Incident package">{_ICON_X}</button>
+            </span>
+            <span class="composer-pill gate" data-pill>
+              {_ICON_GATE_SM}<span>Policy gate</span>
+              <button class="x" type="button" data-dismiss-pill aria-label="Dismiss Policy gate">{_ICON_X}</button>
+            </span>
+          </div>
           <textarea name="q" rows="1" placeholder="Ask about the owner, blast radius, rollback, or why this was gated…"></textarea>
-          <button class="icon-btn" type="button" data-dictate aria-label="Dictate" aria-pressed="false" title="Dictate">{_ICON_MIC}</button>
-          <button type="submit">Ask</button>
+          <div class="composer-tools">
+            <label class="composer-model" title="Answers are retrieval over this incident package">
+              <select aria-label="Model">
+                <option selected>Assent · retrieval</option>
+              </select>
+              {_ICON_CHEVRON}
+            </label>
+            <button class="composer-mic" type="button" data-dictate aria-label="Dictate" aria-pressed="false" title="Dictate">{_ICON_MIC}</button>
+            <button class="composer-send" type="submit" aria-label="Send" title="Send">{_ICON_SEND}</button>
+          </div>
         </div>
-        <div class="composer-hint">⌘ Enter / Ctrl+Enter to send. Answers are retrieval over this incident package. Questions never change a gate.</div>
+        <div class="composer-hint">
+          <span>Questions never change a gate</span>
+          <span>⌘ Enter / Ctrl+Enter to send</span>
+        </div>
       </form>
     </div>
     """

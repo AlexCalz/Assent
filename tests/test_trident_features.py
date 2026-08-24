@@ -115,6 +115,23 @@ def test_change_package_page():
     assert "data-dictate" in page
 
 
+def test_composer_is_cursor_like_input_bar():
+    app = demo_app()
+    record = app.queue()[0]
+    page = render_change(app, record, actor="you", profile="cloud")
+    assert 'class="composer"' in page
+    assert 'action="/ask"' in page
+    assert 'aria-label="Dictate"' in page or "data-dictate" in page
+    assert 'aria-label="Send"' in page or "composer-send" in page
+    assert "composer-plus" in page or 'aria-label="Add context"' in page
+    assert "composer-pill" in page
+    assert "Incident package" in page
+    assert "Assent · retrieval" in page
+    assert "Enter" in page
+    assert "Questions never change a gate" in page
+    assert ">Ask</button>" not in page
+
+
 def test_thread_reply_stays_pinned_to_latest():
     app = demo_app()
     record = app.queue()[0]
