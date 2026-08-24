@@ -16,7 +16,7 @@ from assent.runtime import Assent, ChangeRecord
 
 _e = html.escape
 
-_NW, _NH = 148.0, 66.0
+_NW, _NH = 180.0, 80.0
 _HW, _HH = _NW / 2, _NH / 2
 
 _LABELS: Dict[str, str] = {
@@ -33,19 +33,20 @@ _LABELS: Dict[str, str] = {
     "dev-sandbox-07": "Dev Sandbox",
 }
 
-# Coordinates are plate centers. Keep ≥24px padding inside each zone.
+# Coordinates are plate centers. Keep ≥32px padding inside each zone so
+# labels sit above the plates instead of in a cramped corner.
 _FABRIC: Tuple[dict, ...] = (
-    {"id": "internet", "kind": "cloud", "zone": "wan", "x": 600, "y": 86},
-    {"id": "staging-edge-fw", "kind": "firewall", "zone": "edge", "x": 600, "y": 214},
-    {"id": "stg-access-sw", "kind": "switch", "zone": "staging", "x": 180, "y": 368},
-    {"id": "laptop-4471", "kind": "endpoint", "zone": "staging", "x": 112, "y": 512},
-    {"id": "payments-staging-api", "kind": "service", "zone": "staging", "x": 248, "y": 512},
-    {"id": "prod-core-sw", "kind": "switch", "zone": "prod", "x": 600, "y": 368},
-    {"id": "auth-service", "kind": "service", "zone": "prod", "x": 468, "y": 512},
-    {"id": "payments-api", "kind": "service", "zone": "prod", "x": 600, "y": 512},
-    {"id": "analytics-worker", "kind": "service", "zone": "prod", "x": 732, "y": 512},
-    {"id": "payments-latency", "kind": "service", "zone": "prod", "x": 600, "y": 628},
-    {"id": "dev-sandbox-07", "kind": "service", "zone": "dev", "x": 1020, "y": 430},
+    {"id": "internet", "kind": "cloud", "zone": "wan", "x": 870, "y": 136},
+    {"id": "staging-edge-fw", "kind": "firewall", "zone": "edge", "x": 870, "y": 328},
+    {"id": "stg-access-sw", "kind": "switch", "zone": "staging", "x": 264, "y": 528},
+    {"id": "laptop-4471", "kind": "endpoint", "zone": "staging", "x": 158, "y": 644},
+    {"id": "payments-staging-api", "kind": "service", "zone": "staging", "x": 370, "y": 644},
+    {"id": "prod-core-sw", "kind": "switch", "zone": "prod", "x": 870, "y": 528},
+    {"id": "auth-service", "kind": "service", "zone": "prod", "x": 658, "y": 644},
+    {"id": "payments-api", "kind": "service", "zone": "prod", "x": 870, "y": 644},
+    {"id": "analytics-worker", "kind": "service", "zone": "prod", "x": 1082, "y": 644},
+    {"id": "payments-latency", "kind": "service", "zone": "prod", "x": 870, "y": 760},
+    {"id": "dev-sandbox-07", "kind": "service", "zone": "dev", "x": 1384, "y": 528},
 )
 
 _LINKS: Tuple[Tuple[str, str], ...] = (
@@ -62,11 +63,11 @@ _LINKS: Tuple[Tuple[str, str], ...] = (
 )
 
 _ZONES: Tuple[dict, ...] = (
-    {"id": "wan", "label": "WAN", "x": 470, "y": 28, "w": 260, "h": 116},
-    {"id": "edge", "label": "Edge", "x": 470, "y": 156, "w": 260, "h": 116},
-    {"id": "staging", "label": "Staging", "x": 28, "y": 300, "w": 308, "h": 280},
-    {"id": "prod", "label": "Production", "x": 352, "y": 300, "w": 496, "h": 392},
-    {"id": "dev", "label": "Development", "x": 864, "y": 300, "w": 312, "h": 220},
+    {"id": "wan", "label": "WAN", "x": 670, "y": 36, "w": 400, "h": 168},
+    {"id": "edge", "label": "Edge", "x": 670, "y": 228, "w": 400, "h": 168},
+    {"id": "staging", "label": "Staging", "x": 32, "y": 428, "w": 464, "h": 288},
+    {"id": "prod", "label": "Production", "x": 532, "y": 428, "w": 676, "h": 404},
+    {"id": "dev", "label": "Development", "x": 1244, "y": 428, "w": 280, "h": 288},
 )
 
 _SEV_COLOR = {
@@ -159,9 +160,9 @@ def _mark(kind: str, color: str) -> str:
 
 def _ports(a: dict, b: dict) -> Tuple[float, float, float, float]:
     ax, ay, bx, by = a["x"], a["y"], b["x"], b["y"]
-    if by > ay + 24:
+    if by > ay + 28:
         return ax, ay + _HH, bx, by - _HH
-    if ay > by + 24:
+    if ay > by + 28:
         return ax, ay - _HH, bx, by + _HH
     if bx > ax:
         return ax + _HW, ay, bx - _HW, by
@@ -228,7 +229,7 @@ def _node(
     accent_rect = ""
     if accent:
         accent_rect = (
-            f'<rect class="node-accent" x="{-_HW}" y="{-_HH + 8}" width="3.5" height="{_NH - 16}" '
+            f'<rect class="node-accent" x="{-_HW}" y="{-_HH + 10}" width="3.5" height="{_NH - 20}" '
             f'rx="1.5" fill="{accent}"/>'
         )
 
@@ -244,16 +245,16 @@ def _node(
     live = ""
     if dot_fill:
         live = (
-            f'<circle class="node-live" cx="{_HW - 12}" cy="{-_HH + 12}" r="3.5" '
+            f'<circle class="node-live" cx="{_HW - 14}" cy="{-_HH + 14}" r="3.5" '
             f'fill="{dot_fill}"><title>{agent_title}</title></circle>'
         )
 
     inner = f"""
-      <rect class="node-plate" x="{-_HW}" y="{-_HH}" width="{_NW}" height="{_NH}" rx="12"/>
+      <rect class="node-plate" x="{-_HW}" y="{-_HH}" width="{_NW}" height="{_NH}" rx="14"/>
       {accent_rect}
-      <g transform="translate({-_HW + 18},{-2})">{_mark(node['kind'], ink)}</g>
-      <text class="node-name" x="{-_HW + 38}" y="-2">{_e(name)}</text>
-      <text class="node-meta" x="{-_HW + 38}" y="14">{_e(meta)}</text>
+      <g transform="translate({-_HW + 24},{-4}) scale(1.12)">{_mark(node['kind'], ink)}</g>
+      <text class="node-name" x="{-_HW + 50}" y="-4">{_e(name)}</text>
+      <text class="node-meta" x="{-_HW + 50}" y="16">{_e(meta)}</text>
       {live}
     """
     tag = "a" if href else "g"
@@ -287,8 +288,8 @@ def render_topology(
     for z in _ZONES:
         zones.append(
             f"""<g class="topo-zone">
-              <rect x="{z['x']}" y="{z['y']}" width="{z['w']}" height="{z['h']}" rx="16"/>
-              <text x="{z['x'] + 16}" y="{z['y'] + 22}">{_e(z['label'])}</text>
+              <rect x="{z['x']}" y="{z['y']}" width="{z['w']}" height="{z['h']}" rx="18"/>
+              <text x="{z['x'] + 24}" y="{z['y'] + 32}">{_e(z['label'])}</text>
             </g>"""
         )
 
@@ -314,7 +315,7 @@ def render_topology(
     ]
 
     legend = """
-    <g class="topo-legend" transform="translate(32,708)">
+    <g class="topo-legend" transform="translate(40,908)">
       <rect class="node-accent" x="0" y="-6" width="3.5" height="12" rx="1.5" fill="#a13232"/>
       <text x="12" y="3">Open change</text>
       <circle cx="118" cy="0" r="3.5" fill="#8a5a0f"/>
@@ -326,7 +327,7 @@ def render_topology(
 
     return f"""
     <div class="fabric">
-      <svg class="topo" viewBox="0 0 1200 740" role="img" aria-label="Infrastructure map">
+      <svg class="topo" viewBox="0 0 1560 940" role="img" aria-label="Infrastructure map">
         {''.join(zones)}
         {''.join(links)}
         {''.join(plates)}

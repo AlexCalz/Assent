@@ -110,6 +110,9 @@ def test_change_package_page():
     assert "gate-drawer" in page
     assert 'data-fold="gate"' not in page
     assert page.find("Remediation") < page.find('class="scroll"')
+    assert "Enter" in page
+    assert 'aria-label="Dictate"' in page
+    assert "data-dictate" in page
 
 
 def test_thread_reply_stays_pinned_to_latest():

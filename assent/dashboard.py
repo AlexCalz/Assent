@@ -405,12 +405,21 @@ select.profile:hover { border-color: var(--line-2); }
   flex: 1; border: 0; resize: none; outline: none; background: transparent;
   min-height: 24px; max-height: 140px; padding: 7px 0; font-size: var(--t-read); line-height: 1.5;
 }
-.composer-box button {
+.composer-box button[type="submit"] {
   border: 0; background: var(--ink); color: var(--n0);
   border-radius: var(--r-md); padding: 8px 14px; font-weight: 600; font-size: var(--t-small);
   transition: transform 140ms var(--ease), opacity 140ms var(--ease);
 }
-.composer-box button:hover { transform: translateY(-1px); opacity: 0.92; }
+.composer-box button[type="submit"]:hover { transform: translateY(-1px); opacity: 0.92; }
+.composer-box .icon-btn {
+  flex: none; width: 32px; height: 32px; margin-bottom: 1px;
+  color: var(--ink-3);
+}
+.composer-box .icon-btn:hover { color: var(--ink); background: var(--n2); }
+.composer-box .icon-btn.on,
+.composer-box .icon-btn[aria-pressed="true"] {
+  color: var(--accent); background: var(--accent-2);
+}
 .composer-hint { max-width: 780px; margin: 6px auto 0; font-size: var(--t-micro); color: var(--ink-3); }
 
 /* ---------------------------------------------------------------- pages */
@@ -593,24 +602,28 @@ details.trace pre {
 
 /* ---------------------------------------------------------------- infra */
 .infra { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
-.infra-inner { max-width: 1280px; width: 100%; margin: 0 auto; padding: var(--s5) var(--s5) var(--s6); }
+.infra-inner { max-width: 1480px; width: 100%; margin: 0 auto; padding: var(--s5) var(--s5) var(--s6); }
 .roster {
   display: flex; flex-wrap: wrap;
   border: 1px solid var(--line); border-radius: var(--r-lg);
   overflow: hidden; background: var(--n0); margin: 0 0 var(--s5);
 }
 .roster-item {
-  display: flex; align-items: center; gap: var(--s2);
-  flex: 1 1 200px; min-width: 200px;
+  display: flex; align-items: flex-start; gap: 12px;
+  flex: 1 1 240px; min-width: 240px;
   border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
-  padding: 12px 14px; background: var(--n0);
+  padding: 16px 18px; background: var(--n0);
 }
-.roster-item .status-dot { width: 6px; height: 6px; border-radius: 50%; margin-left: auto; flex: none; }
+.roster-item .byline { flex: 1; min-width: 0; }
+.roster-item .status-dot { width: 7px; height: 7px; border-radius: 50%; margin-left: auto; margin-top: 6px; flex: none; }
 .dot-working { background: var(--route); }
 .dot-blocked { background: var(--escalate); }
 .dot-complete { background: var(--auto); }
 .dot-idle { background: var(--n4); }
-.roster-item .detail { font-size: var(--t-micro); color: var(--ink-3); margin-top: 1px; }
+.roster-item .detail {
+  font-size: var(--t-meta); color: var(--ink-3); margin-top: 3px;
+  line-height: 1.4; white-space: normal; overflow: visible; text-overflow: unset;
+}
 
 .fabric {
   border: 1px solid var(--line); border-radius: var(--r-lg);
@@ -619,22 +632,22 @@ details.trace pre {
 .topo { width: 100%; height: auto; display: block; background: var(--n1); }
 .topo-zone rect { fill: #fcfcfb; stroke: var(--line); stroke-width: 1; }
 .topo-zone text {
-  font-size: 10px; font-weight: 650; letter-spacing: 0.12em;
+  font-size: 11px; font-weight: 650; letter-spacing: 0.12em;
   text-transform: uppercase; fill: #86898f; font-family: var(--sans);
 }
-.topo-link { fill: none; stroke: #d4d4ce; stroke-width: 1.2; }
-.topo-link.hot { stroke: color-mix(in srgb, var(--accent) 45%, #d4d4ce); stroke-width: 1.45; }
+.topo-link { fill: none; stroke: #d4d4ce; stroke-width: 1.35; }
+.topo-link.hot { stroke: color-mix(in srgb, var(--accent) 32%, #c8c8c2); stroke-width: 1.55; }
 .node { cursor: pointer; }
 .node.muted { cursor: default; }
 .node-plate { fill: #ffffff; stroke: var(--line-2); stroke-width: 1; }
 .node:hover .node-plate { stroke: #b8b8b2; }
 .node.on .node-plate { stroke: var(--ink); stroke-width: 1.35; }
 .node-name {
-  font-size: 12px; font-weight: 600; fill: #17181a;
+  font-size: 13.5px; font-weight: 600; fill: #17181a;
   font-family: var(--sans); letter-spacing: -0.01em;
 }
-.node-meta { font-size: 10px; fill: #86898f; font-family: var(--sans); }
-.topo-legend text { font-size: 11px; fill: #86898f; font-family: var(--sans); }
+.node-meta { font-size: 11px; fill: #86898f; font-family: var(--sans); }
+.topo-legend text { font-size: 12px; fill: #86898f; font-family: var(--sans); }
 
 .muted { color: var(--ink-3); }
 .chip {
@@ -712,8 +725,68 @@ _NAV_SCRIPT = """
         ta.style.height = Math.min(ta.scrollHeight, 140) + 'px';
       };
       ta.addEventListener('input', grow);
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          var form = ta.closest('form');
+          if (!form) return;
+          if (typeof form.requestSubmit === 'function') form.requestSubmit();
+          else form.submit();
+        }
+      });
       grow();
+
+      var mic = ta.closest('form') && ta.closest('form').querySelector('[data-dictate]');
+      if (mic) bindDictate(ta, mic, grow);
     });
+
+    function bindDictate(ta, btn, grow) {
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        btn.title = 'Speech recognition is not available in this browser';
+        btn.addEventListener('click', function (e) { e.preventDefault(); });
+        return;
+      }
+      var rec = null;
+      var listening = false;
+      var base = '';
+      var setOn = function (on) {
+        listening = on;
+        btn.classList.toggle('on', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      };
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (listening) {
+          if (rec) try { rec.stop(); } catch (err) {}
+          return;
+        }
+        rec = new SR();
+        rec.continuous = true;
+        rec.interimResults = true;
+        rec.lang = document.documentElement.lang || 'en-US';
+        base = ta.value;
+        rec.onresult = function (ev) {
+          var interim = '';
+          var finals = '';
+          for (var i = ev.resultIndex; i < ev.results.length; i++) {
+            var t = ev.results[i][0].transcript;
+            if (ev.results[i].isFinal) finals += t;
+            else interim += t;
+          }
+          if (finals) {
+            base = (base && !/\\s$/.test(base) ? base + ' ' : base) + finals.replace(/^\\s+/, '');
+          }
+          var next = base;
+          if (interim) next = (next && !/\\s$/.test(next) ? next + ' ' : next) + interim.replace(/^\\s+/, '');
+          ta.value = next;
+          grow();
+        };
+        rec.onend = function () { setOn(false); rec = null; };
+        rec.onerror = function () { setOn(false); };
+        try { rec.start(); setOn(true); } catch (err) { setOn(false); }
+      });
+    }
 
     try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) {}
     var sc = document.querySelector('.scroll');
@@ -747,6 +820,7 @@ _NAV_SCRIPT = """
 
 _ICON_PANEL = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M6.2 2.8v10.4" stroke="currentColor" stroke-width="1.3"/></svg>'
 _ICON_PLUS = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.4v9.2M3.4 8h9.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+_ICON_MIC = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="1.6" width="4" height="7.2" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.8 7.4a4.2 4.2 0 0 0 8.4 0M8 11.6v2.2M5.6 13.8h4.8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>'
 
 
 # --------------------------------------------------------------------- helpers
@@ -1122,9 +1196,10 @@ def _thread_workspace(record: Optional[ChangeRecord], extras: Optional[Sequence[
         <input type="hidden" name="id" value="{_e(record.id)}">
         <div class="composer-box">
           <textarea name="q" rows="1" placeholder="Ask about the owner, blast radius, rollback, or why this was gated…"></textarea>
+          <button class="icon-btn" type="button" data-dictate aria-label="Dictate" aria-pressed="false" title="Dictate">{_ICON_MIC}</button>
           <button type="submit">Ask</button>
         </div>
-        <div class="composer-hint">Answers are retrieval over this incident package. Questions never change a gate.</div>
+        <div class="composer-hint">⌘ Enter / Ctrl+Enter to send. Answers are retrieval over this incident package. Questions never change a gate.</div>
       </form>
     </div>
     """
