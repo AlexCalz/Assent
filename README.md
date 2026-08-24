@@ -17,14 +17,13 @@ python -m assent.app        # then open http://127.0.0.1:8000
 
 Mission control with:
 
-- **Alerts as chats** — each signal is a conversation in the left sidebar
-- **Top tools** — Chat, Approvals, Infrastructure
-- **You / Jordan toggle** — sit at your desk or the payments owner's
-- **Approvals + Audit** — inbox for the person you're viewing, with command, envelope, who, why, rollback (not a hash ledger)
-- **Infrastructure** — Packet Tracer-style diagram with agents pinned on live nodes
+- **Alerts as chats** — each signal is a conversation in the left sidebar (collapsible)
+- **Top tools** — Threads, Approvals, Infrastructure
+- **You / Team** — Approvals-only scope control (drag or click)
+- **Approvals + Audit** — collapsible inbox and audit, thick importance borders
+- **Infrastructure** — labeled device plates in environment zones, agents pinned on live nodes
 - **Gated remediation** — Assent's approval card still drives the real engine
 - **Demo inject** — simulate an alert from the sidebar
-- **Dual profiles** — Cloud Personal/Startup or Private Tenant/Agency
 
 Surfaces inspired by TRIDENT-AI's ops IA; every gate decision still comes from Assent's
 deterministic engine (confidence never authorizes). Standard library only.
@@ -46,9 +45,10 @@ deterministic engine (confidence never authorizes). Standard library only.
 | Path | Purpose |
 |---|---|
 | [assent/runtime.py](assent/runtime.py) | Orchestrator — signal → propose → owner → audit → gate → act/queue |
-| [assent/app.py](assent/app.py) | HTTP entry — demo world, demo inject, profile switcher |
-| [assent/dashboard.py](assent/dashboard.py) | ChatGPT-style shell (alerts, tools, You/Jordan) |
-| [assent/topology.py](assent/topology.py) | Packet Tracer infrastructure canvas |
+| [assent/app.py](assent/app.py) | HTTP entry — demo world, demo inject |
+| [assent/dashboard.py](assent/dashboard.py) | Desktop shell (threads, approvals, infrastructure) |
+| [assent/identity.py](assent/identity.py) | Agent mark vs human job title |
+| [assent/topology.py](assent/topology.py) | Labeled infrastructure canvas |
 | [assent/package.py](assent/package.py) | Incident package projection over a gated `Change` |
 | [assent/agents.py](assent/agents.py) | Live agent roster derived from runtime state |
 | [assent/policy.py](assent/policy.py) | Deterministic `PolicyEngine` |

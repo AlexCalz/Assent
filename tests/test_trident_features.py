@@ -49,9 +49,9 @@ def test_mission_dashboard_renders_chat_shell():
     assert "Approvals" in page
     assert "Infrastructure" in page
     assert "Simulate alert" in page
-    assert "Cloud · Personal" in page
-    # The desk you're sitting at shows a name plus a job title, never a bare id.
     assert "Security Operations Lead" in page
+    assert "select class=\"profile\"" not in page
+    assert "wordmark\">Assent" in page or ">Assent</span>" in page
 
 
 def test_agents_are_labelled_as_agents_people_get_job_titles():
@@ -77,20 +77,20 @@ def test_scope_toggle_is_approvals_only():
     assert ">Team<" in approvals
 
 
-def test_private_profile_label():
+def test_private_profile_still_renders_shell():
     app = demo_app()
     page = render_mission(app, actor="alex", profile="private")
-    assert "Private Tenant · Agency" in page
-    assert "SSO" in page
+    assert "Assent" in page
+    assert "Security Operations Lead" in page
 
 
 def test_overview_lists_inventory():
     app = demo_app()
     page = render_overview(app, actor="alex", profile="cloud")
-    assert "payments-api" in page
+    assert "payments-api" in page or "Payments API" in page
     assert "Infrastructure" in page
     assert "pt-canvas" in page
-    assert "Acting Proposer" in page
+    assert "Proposer" in page
 
 
 def test_change_package_page():
@@ -128,3 +128,27 @@ def test_legacy_render_helpers_still_work():
     q = render_queue(app, "alex")
     led = render_ledger(app, "alex")
     assert "Assent" in q and "chain verified" in led
+
+
+def test_escalate_primary_button_has_visible_label():
+    app = demo_app()
+    record = next(
+        r for r in app.queue()
+        if r.change is not None and r.decision and r.decision.value == "escalate"
+    )
+    page = render_change(app, record, actor="you", profile="cloud")
+    assert "Take ownership" in page or "Approve" in page
+    assert "Deny" in page
+    # The escalate tone must not paint the primary button's label in the fill color.
+    assert "btn-primary tone-escalate" in page
+
+
+def test_approvals_inbox_and_audit_are_collapsible():
+    from assent.dashboard import render_app
+
+    app = demo_app()
+    page = render_app(app, actor="you", profile="cloud", tool="approvals")
+    assert 'data-fold="inbox"' in page
+    assert 'data-fold="audit"' in page
+    assert "data-glass-toggle" in page
+    assert "imp-critical" in page or "imp-high" in page

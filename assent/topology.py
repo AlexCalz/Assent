@@ -1,8 +1,7 @@
-"""Packet Tracer-style infrastructure canvas.
+"""Infrastructure canvas — labeled device plates, not dangling lowercase IDs.
 
-Not a card grid: zones, labeled devices, links, and live agent pins on the
-nodes where work is happening — the Cisco Packet Tracer overview, remapped
-onto Assent's inventory + open changes.
+Each node is a plate: icon + title-case name + environment, sized so the
+label lives *inside* the box. Zones are rooms; plates never overflow them.
 """
 
 from __future__ import annotations
@@ -16,21 +15,34 @@ from assent.runtime import Assent, ChangeRecord
 
 _e = html.escape
 
+# Short, title-case names that fit a 128×86 plate.
+_LABELS: Dict[str, Tuple[str, str]] = {
+    "internet": ("Internet", "WAN"),
+    "staging-edge-fw": ("Edge Firewall", "Edge"),
+    "stg-access-sw": ("Access Switch", "Staging"),
+    "laptop-4471": ("Laptop 4471", "Endpoint"),
+    "payments-staging-api": ("Payments", "Staging"),
+    "prod-core-sw": ("Core Switch", "Production"),
+    "auth-service": ("Auth Service", "Identity"),
+    "payments-api": ("Payments API", "Production"),
+    "analytics-worker": ("Analytics", "Production"),
+    "payments-latency": ("Latency Probe", "Production"),
+    "dev-sandbox-07": ("Dev Sandbox", "Development"),
+}
 
-# Fabric nodes that exist so the diagram reads as a network, not a CMDB dump.
-# Inventory systems are overlaid onto these coordinates when present.
+# Plate is 128×90, so keep coordinates with ≥70px padding inside each zone.
 _FABRIC: Tuple[dict, ...] = (
-    {"id": "internet", "label": "Internet", "kind": "cloud", "x": 560, "y": 58, "zone": "wan"},
-    {"id": "staging-edge-fw", "label": "Edge FW", "kind": "firewall", "x": 560, "y": 168, "zone": "edge"},
-    {"id": "stg-access-sw", "label": "Stg Access", "kind": "switch", "x": 220, "y": 300, "zone": "staging"},
-    {"id": "laptop-4471", "label": "laptop-4471", "kind": "endpoint", "x": 220, "y": 410, "zone": "staging"},
-    {"id": "payments-staging-api", "label": "payments-staging-api", "kind": "server", "x": 220, "y": 525, "zone": "staging"},
-    {"id": "prod-core-sw", "label": "Prod Core", "kind": "switch", "x": 560, "y": 300, "zone": "prod"},
-    {"id": "auth-service", "label": "auth-service", "kind": "identity", "x": 430, "y": 430, "zone": "prod"},
-    {"id": "payments-api", "label": "payments-api", "kind": "server", "x": 560, "y": 430, "zone": "prod"},
-    {"id": "analytics-worker", "label": "analytics-worker", "kind": "server", "x": 690, "y": 430, "zone": "prod"},
-    {"id": "payments-latency", "label": "payments-latency", "kind": "server", "x": 560, "y": 540, "zone": "prod"},
-    {"id": "dev-sandbox-07", "label": "dev-sandbox-07", "kind": "server", "x": 900, "y": 360, "zone": "dev"},
+    {"id": "internet", "kind": "cloud", "x": 620, "y": 72, "zone": "wan"},
+    {"id": "staging-edge-fw", "kind": "firewall", "x": 620, "y": 188, "zone": "edge"},
+    {"id": "stg-access-sw", "kind": "switch", "x": 180, "y": 340, "zone": "staging"},
+    {"id": "laptop-4471", "kind": "endpoint", "x": 180, "y": 456, "zone": "staging"},
+    {"id": "payments-staging-api", "kind": "server", "x": 180, "y": 572, "zone": "staging"},
+    {"id": "prod-core-sw", "kind": "switch", "x": 620, "y": 340, "zone": "prod"},
+    {"id": "auth-service", "kind": "identity", "x": 470, "y": 470, "zone": "prod"},
+    {"id": "payments-api", "kind": "server", "x": 620, "y": 470, "zone": "prod"},
+    {"id": "analytics-worker", "kind": "server", "x": 770, "y": 470, "zone": "prod"},
+    {"id": "payments-latency", "kind": "server", "x": 620, "y": 586, "zone": "prod"},
+    {"id": "dev-sandbox-07", "kind": "server", "x": 1060, "y": 430, "zone": "dev"},
 )
 
 _LINKS: Tuple[Tuple[str, str], ...] = (
@@ -47,29 +59,32 @@ _LINKS: Tuple[Tuple[str, str], ...] = (
 )
 
 _ZONES: Tuple[dict, ...] = (
-    {"id": "wan", "label": "WAN", "x": 470, "y": 12, "w": 180, "h": 92, "fill": "#e8eef2"},
-    {"id": "edge", "label": "Edge / DMZ", "x": 470, "y": 118, "w": 180, "h": 100, "fill": "#f3ead6"},
-    {"id": "staging", "label": "Staging", "x": 118, "y": 240, "w": 204, "h": 330, "fill": "#e7f1ea"},
-    {"id": "prod", "label": "Production", "x": 370, "y": 240, "w": 400, "h": 370, "fill": "#f6e7e7"},
-    {"id": "dev", "label": "Dev", "x": 810, "y": 240, "w": 180, "h": 220, "fill": "#e7eef6"},
+    {"id": "wan", "label": "WAN", "x": 500, "y": 16, "w": 240, "h": 112, "fill": "#eef2f4"},
+    {"id": "edge", "label": "Edge", "x": 500, "y": 136, "w": 240, "h": 112, "fill": "#f6efe0"},
+    {"id": "staging", "label": "Staging", "x": 36, "y": 268, "w": 288, "h": 372, "fill": "#e8f3ec"},
+    {"id": "prod", "label": "Production", "x": 348, "y": 268, "w": 544, "h": 388, "fill": "#f7ecec"},
+    {"id": "dev", "label": "Development", "x": 916, "y": 268, "w": 288, "h": 280, "fill": "#e8eef6"},
 )
 
-_KIND_MARK = {
-    "cloud": "☁",
-    "firewall": "FW",
-    "switch": "SW",
-    "server": "SRV",
-    "endpoint": "PC",
-    "identity": "ID",
-}
+_PLATE_W, _PLATE_H = 128, 90
 
 
 def _index() -> Dict[str, dict]:
     return {n["id"]: n for n in _FABRIC}
 
 
+def _caption(node_id: str, inventory: Inventory) -> Tuple[str, str]:
+    name, env = _LABELS.get(node_id, (node_id.replace("-", " ").title(), "Fabric"))
+    sys = inventory.lookup(node_id)
+    if sys is None:
+        return name, env
+    env = {"dev": "Development", "staging": "Staging", "prod": "Production"}[sys.environment.value]
+    if sys.tier0:
+        env = env + " · Tier 0"
+    return name, env
+
+
 def pins_for(app: Assent, agents: Sequence[AgentView]) -> Dict[str, List[dict]]:
-    """Map inventory system → agents currently touching it."""
     open_by_target: Dict[str, List[ChangeRecord]] = {}
     for record in app.queue():
         open_by_target.setdefault(record.signal.target, []).append(record)
@@ -105,7 +120,6 @@ def pins_for(app: Assent, agents: Sequence[AgentView]) -> Dict[str, List[dict]]:
             for rec in app.queue():
                 add(rec.signal.target, agent, "gate held for human")
 
-    # Always mark systems that have open work even if roster is idle.
     for target, recs in open_by_target.items():
         if target not in pins:
             pins[target] = [
@@ -119,74 +133,64 @@ def pins_for(app: Assent, agents: Sequence[AgentView]) -> Dict[str, List[dict]]:
     return pins
 
 
-def _icon(kind: str, x: float, y: float, hot: bool) -> str:
-    stroke = "#0f5c57" if hot else "#2c3a44"
-    fill = "#f4fffc" if hot else "#fbfbf8"
+def _icon(kind: str, hot: bool) -> str:
+    stroke = "#0d5c56" if hot else "#3a4248"
+    fill = "#f3fbf9" if hot else "#ffffff"
+    # Compact glyphs that sit in the top half of the plate.
     if kind == "cloud":
-        return f"""
-        <g transform="translate({x},{y})">
-          <path d="M-30 10 q-9 0 -9 -8 0 -8 9 -8.6 1.4 -10.4 12 -10.4 7.6 0 10.6 6.4
-                   2.6 -3.4 7.6 -3.4 7.8 0 8.8 7.6 8.4 0.8 8.4 8.4 0 8 -9 8 z"
-                fill="{fill}" stroke="{stroke}" stroke-width="1.6" stroke-linejoin="round"/>
+        return f"""<g transform="translate(0,-14)">
+          <path d="M-22 8 q-7 0 -7 -6 0 -6 7 -6.4 1 -8 9 -8 6 0 8 5 2 -2.6 6 -2.6 6 0 6.6 5.8 6.4.6 6.4 6.2 0 6 -7 6 z"
+                fill="{fill}" stroke="{stroke}" stroke-width="1.5" stroke-linejoin="round"/>
         </g>"""
     if kind == "firewall":
-        return f"""
-        <g transform="translate({x},{y})">
-          <rect x="-28" y="-18" width="56" height="36" rx="3" fill="{fill}" stroke="{stroke}" stroke-width="1.6"/>
-          <path d="M-20 -6 H20 M-20 0 H20 M-20 6 H20" stroke="{stroke}" stroke-width="1.4"/>
-          <rect x="-28" y="-18" width="8" height="36" fill="{stroke}" opacity="0.18"/>
-          <rect x="20" y="-18" width="8" height="36" fill="{stroke}" opacity="0.18"/>
+        return f"""<g transform="translate(0,-14)">
+          <rect x="-22" y="-12" width="44" height="24" rx="3" fill="{fill}" stroke="{stroke}" stroke-width="1.5"/>
+          <path d="M-16 -4 H16 M-16 0 H16 M-16 4 H16" stroke="{stroke}" stroke-width="1.3"/>
         </g>"""
     if kind == "switch":
-        return f"""
-        <g transform="translate({x},{y})">
-          <rect x="-32" y="-12" width="64" height="24" rx="3" fill="{fill}" stroke="{stroke}" stroke-width="1.6"/>
+        return f"""<g transform="translate(0,-14)">
+          <rect x="-24" y="-9" width="48" height="18" rx="3" fill="{fill}" stroke="{stroke}" stroke-width="1.5"/>
           <g fill="{stroke}">
-            <rect x="-24" y="-4" width="8" height="8" rx="1"/>
-            <rect x="-10" y="-4" width="8" height="8" rx="1"/>
-            <rect x="4" y="-4" width="8" height="8" rx="1"/>
-            <rect x="18" y="-4" width="8" height="8" rx="1"/>
+            <rect x="-18" y="-3" width="6" height="6" rx="1"/>
+            <rect x="-8" y="-3" width="6" height="6" rx="1"/>
+            <rect x="2" y="-3" width="6" height="6" rx="1"/>
+            <rect x="12" y="-3" width="6" height="6" rx="1"/>
           </g>
         </g>"""
     if kind == "endpoint":
-        return f"""
-        <g transform="translate({x},{y})">
-          <rect x="-26" y="-18" width="52" height="32" rx="3" fill="{fill}" stroke="{stroke}" stroke-width="1.6"/>
-          <rect x="-20" y="-12" width="40" height="20" fill="#152028"/>
-          <rect x="-10" y="14" width="20" height="4" fill="{stroke}"/>
-          <rect x="-16" y="18" width="32" height="3" rx="1" fill="{stroke}"/>
+        return f"""<g transform="translate(0,-14)">
+          <rect x="-20" y="-12" width="40" height="22" rx="3" fill="{fill}" stroke="{stroke}" stroke-width="1.5"/>
+          <rect x="-15" y="-8" width="30" height="13" fill="#17181a"/>
+          <rect x="-8" y="11" width="16" height="3" fill="{stroke}"/>
         </g>"""
     if kind == "identity":
-        return f"""
-        <g transform="translate({x},{y})">
-          <rect x="-22" y="-22" width="44" height="44" rx="8" fill="{fill}" stroke="{stroke}" stroke-width="1.6"/>
-          <circle cx="0" cy="-6" r="8" fill="none" stroke="{stroke}" stroke-width="1.6"/>
-          <path d="M-14 16 q14 -16 28 0" fill="none" stroke="{stroke}" stroke-width="1.6"/>
+        return f"""<g transform="translate(0,-14)">
+          <rect x="-16" y="-16" width="32" height="32" rx="8" fill="{fill}" stroke="{stroke}" stroke-width="1.5"/>
+          <circle cx="0" cy="-4" r="5.5" fill="none" stroke="{stroke}" stroke-width="1.5"/>
+          <path d="M-10 12 q10 -12 20 0" fill="none" stroke="{stroke}" stroke-width="1.5"/>
         </g>"""
-    # server
-    return f"""
-    <g transform="translate({x},{y})">
-      <rect x="-18" y="-24" width="36" height="48" rx="3" fill="{fill}" stroke="{stroke}" stroke-width="1.6"/>
-      <rect x="-12" y="-16" width="24" height="6" rx="1" fill="{stroke}" opacity="0.18"/>
-      <rect x="-12" y="-6" width="24" height="6" rx="1" fill="{stroke}" opacity="0.18"/>
-      <rect x="-12" y="4" width="24" height="6" rx="1" fill="{stroke}" opacity="0.18"/>
-      <circle cx="0" cy="18" r="2.4" fill="{stroke}"/>
+    return f"""<g transform="translate(0,-14)">
+      <rect x="-13" y="-16" width="26" height="32" rx="3" fill="{fill}" stroke="{stroke}" stroke-width="1.5"/>
+      <rect x="-8" y="-10" width="16" height="4" rx="1" fill="{stroke}" opacity="0.18"/>
+      <rect x="-8" y="-3" width="16" height="4" rx="1" fill="{stroke}" opacity="0.18"/>
+      <rect x="-8" y="4" width="16" height="4" rx="1" fill="{stroke}" opacity="0.18"/>
+      <circle cx="0" cy="12" r="1.8" fill="{stroke}"/>
     </g>"""
 
 
-def _pin_stack(x: float, y: float, pins: List[dict]) -> str:
+def _pin_stack(pins: List[dict]) -> str:
     bits = []
-    for i, pin in enumerate(pins[:4]):
-        dx = -18 + i * 16
+    for i, pin in enumerate(pins[:3]):
+        dx = -20 + i * 16
         letter = {"proposer": "P", "ownership": "O", "auditor": "A", "policy": "E"}.get(
             pin["role"], "?"
         )
         title = _e(f"{pin['name']} — {pin['note']}")
         bits.append(
-            f"""<g transform="translate({x + dx},{y - 40})" class="agent-pin pin-{_e(pin['status'])}">
+            f"""<g transform="translate({dx},{-52})" class="agent-pin pin-{_e(pin['status'])}">
               <title>{title}</title>
-              <circle r="9" />
-              <text text-anchor="middle" dy="3.5">{letter}</text>
+              <circle r="8"/>
+              <text text-anchor="middle" dy="3">{letter}</text>
             </g>"""
         )
     return "".join(bits)
@@ -198,7 +202,6 @@ def render_topology(
     *,
     selected: Optional[str] = None,
 ) -> str:
-    """SVG canvas. ``selected`` is an inventory system name to highlight."""
     nodes = _index()
     inventory: Inventory = app.inventory
     pins = pins_for(app, agents)
@@ -209,13 +212,14 @@ def render_topology(
     for record in app.records():
         href_for.setdefault(record.signal.target, f"/change/{record.id}")
 
+    hw, hh = _PLATE_W / 2, _PLATE_H / 2
     zones = []
     for z in _ZONES:
         zones.append(
             f"""<g class="pt-zone zone-{z['id']}">
-              <rect x="{z['x']}" y="{z['y']}" width="{z['w']}" height="{z['h']}" rx="16"
-                    fill="{z['fill']}" stroke="rgba(21,32,40,0.10)"/>
-              <text x="{z['x'] + 14}" y="{z['y'] + 22}" class="pt-zone-label">{_e(z['label'])}</text>
+              <rect x="{z['x']}" y="{z['y']}" width="{z['w']}" height="{z['h']}" rx="18"
+                    fill="{z['fill']}" stroke="rgba(23,24,26,0.08)"/>
+              <text x="{z['x'] + 16}" y="{z['y'] + 24}" class="pt-zone-label">{_e(z['label'])}</text>
             </g>"""
         )
 
@@ -230,71 +234,56 @@ def render_topology(
 
     devices = []
     for node in _FABRIC:
-        sys = inventory.lookup(node["id"])
-        known = sys is not None
+        name, env = _caption(node["id"], inventory)
         hot = node["id"] in open_targets or node["id"] == selected
         href = href_for.get(node["id"], "")
-        meta = ""
-        if sys is not None:
-            meta = f"{sys.environment.value}" + (" · tier-0" if sys.tier0 else "")
-        elif node["kind"] in {"cloud", "switch"}:
-            meta = "fabric"
-        label = sys.name if sys is not None else node["label"]
         on = " on" if node["id"] == selected else ""
+        stroke = "#0d5c56" if hot else "rgba(23,24,26,0.12)"
+        sw = "2.2" if hot else "1.2"
+        fill = "#f4fffb" if hot else "#ffffff"
         inner = f"""
-            {_icon(node['kind'], 0, 0, hot)}
-            <text class="pt-label" y="42" text-anchor="middle">{_e(label)}</text>
-            <text class="pt-meta" y="56" text-anchor="middle">{_e(meta or _KIND_MARK.get(node['kind'], ''))}</text>
-            {_pin_stack(0, 0, pins.get(node['id'], []))}
+          <rect class="plate" x="{-hw}" y="{-hh}" width="{_PLATE_W}" height="{_PLATE_H}" rx="14"
+                fill="{fill}" stroke="{stroke}" stroke-width="{sw}"/>
+          {_icon(node['kind'], hot)}
+          <foreignObject x="{-hw + 6}" y="12" width="{_PLATE_W - 12}" height="30">
+            <div xmlns="http://www.w3.org/1999/xhtml" class="pt-caption">
+              <div class="pt-name">{_e(name)}</div>
+              <div class="pt-env">{_e(env)}</div>
+            </div>
+          </foreignObject>
+          {_pin_stack(pins.get(node['id'], []))}
         """
-        if href:
-            devices.append(
-                f'<a class="pt-node{on}" href="{_e(href)}" transform="translate({node["x"]},{node["y"]})">{inner}</a>'
-            )
-        else:
-            devices.append(
-                f'<g class="pt-node{on} muted" transform="translate({node["x"]},{node["y"]})">{inner}</g>'
-            )
-        _ = known  # inventory miss is still drawn as fabric
+        tag = "a" if href else "g"
+        href_attr = f' href="{_e(href)}"' if href else ""
+        extra = "" if href else " muted"
+        devices.append(
+            f'<{tag} class="pt-node{on}{extra}"{href_attr} transform="translate({node["x"]},{node["y"]})">{inner}</{tag}>'
+        )
 
     def key(dx: float, letter: str, label: str) -> str:
         return f"""
         <g transform="translate({dx},0)">
-          <circle class="legend-pin" r="8.5" cx="8" cy="0"/>
-          <text class="legend-letter" x="8" y="3.4" text-anchor="middle">{letter}</text>
-          <text x="23" y="3.6">{label}</text>
+          <circle class="legend-pin" r="8" cx="8" cy="0"/>
+          <text class="legend-letter" x="8" y="3.2" text-anchor="middle">{letter}</text>
+          <text x="22" y="3.4">{label}</text>
         </g>"""
 
     legend = f"""
-    <g class="pt-legend" transform="translate(26,634)">
-      <text class="pt-zone-label" x="0" y="0">Agents working a device</text>
-      <g transform="translate(0,20)">
-        {key(0, 'P', 'proposer')}
-        {key(108, 'O', 'owner resolver')}
-        {key(258, 'A', 'auditor')}
-        {key(366, 'E', 'policy engine')}
-      </g>
-      <g transform="translate(0,44)">
-        <text class="pt-zone-label" x="0" y="0">Pin colour = state</text>
-        <g transform="translate(158,-4)">
-          <circle class="pin-working" r="5" cx="5" cy="0"/><text x="16" y="3.4">working</text>
-          <circle class="pin-blocked" r="5" cx="98" cy="0"/><text x="109" y="3.4">blocked</text>
-          <circle class="pin-complete" r="5" cx="188" cy="0"/><text x="199" y="3.4">settled</text>
-        </g>
+    <g class="pt-legend" transform="translate(36,678)">
+      <text class="pt-zone-label" x="0" y="0">Agents on a device</text>
+      <g transform="translate(0,22)">
+        {key(0, 'P', 'Proposer')}
+        {key(118, 'O', 'Owner resolver')}
+        {key(278, 'A', 'Auditor')}
+        {key(396, 'E', 'Policy engine')}
       </g>
     </g>
     """
 
     return f"""
     <div class="pt-wrap">
-      <svg class="pt-canvas" viewBox="0 0 1100 712" role="img" aria-label="Infrastructure topology">
-        <defs>
-          <pattern id="pt-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(21,32,40,0.05)" stroke-width="1"/>
-          </pattern>
-        </defs>
-        <rect width="1100" height="712" fill="#f3f1ea"/>
-        <rect width="1100" height="712" fill="url(#pt-grid)"/>
+      <svg class="pt-canvas" viewBox="0 0 1240 760" role="img" aria-label="Infrastructure topology">
+        <rect width="1240" height="760" fill="#f7f6f2"/>
         {''.join(zones)}
         {''.join(links)}
         {''.join(devices)}

@@ -3,10 +3,10 @@
     python -m assent.app          # then open http://127.0.0.1:8000
 
 Serves a ChatGPT-style control plane over HTTP: alerts as conversation
-headers, tools (Chat / Approvals / Infrastructure) in the top bar, a You /
-Jordan desk toggle, and a Packet Tracer topology with agents on the nodes
-they are working. Approve, deny, undo, demo inject, and profile switch all
-drive the real ``Assent`` runtime. Standard library only.
+headers, tools (Threads / Approvals / Infrastructure) in the top bar, a You /
+Team scope control on Approvals, and a labeled infrastructure canvas with
+agents on the nodes they are working. Approve, deny, undo, and demo inject
+all drive the real ``Assent`` runtime. Standard library only.
 """
 
 from __future__ import annotations

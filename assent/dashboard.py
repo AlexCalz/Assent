@@ -171,13 +171,9 @@ html[data-nav="collapsed"] .rail-inner { opacity: 0; transform: translateX(-12px
   gap: var(--s2); padding: var(--s3) var(--s3) var(--s2) var(--s4);
 }
 .wordmark {
-  display: flex; align-items: center; gap: var(--s2);
+  display: flex; align-items: center;
   font-family: var(--display); font-size: var(--t-h2); letter-spacing: -0.015em;
-  line-height: 1;
-}
-.wordmark .dot {
-  width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-2);
+  line-height: 1; font-weight: 500;
 }
 .icon-btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -219,9 +215,14 @@ html[data-nav="collapsed"] .rail-inner { opacity: 0; transform: translateX(-12px
 .thread-row {
   display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: var(--s2);
   align-items: start; padding: 9px 10px; border-radius: var(--r-md);
-  transition: background 140ms var(--ease);
+  transition: background 140ms var(--ease), border-color 140ms var(--ease);
   position: relative;
+  border: 2.5px solid transparent;
 }
+.thread-row.imp-critical { border-color: var(--escalate); background: color-mix(in srgb, var(--escalate) 6%, transparent); }
+.thread-row.imp-high { border-color: var(--route); }
+.thread-row.imp-settled { border-color: color-mix(in srgb, var(--auto) 55%, var(--line)); }
+.thread-row.imp-quiet { border-color: var(--line); }
 .thread-row:hover { background: var(--n3); }
 .thread-row.on { background: var(--n0); box-shadow: var(--shadow-1), 0 0 0 1px var(--line); }
 .thread-row .state {
@@ -312,9 +313,10 @@ select.profile:hover { border-color: var(--line-2); }
 .avatar.sm { width: 22px; height: 22px; border-radius: 7px; font-size: 9.5px; }
 .avatar.sm .mark-glyph { width: 13px; height: 13px; }
 
-.byline { display: inline-flex; align-items: baseline; gap: 7px; flex-wrap: wrap; min-width: 0; }
+.byline { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; }
+.byline-row { display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .byline-name { font-size: var(--t-body); font-weight: 600; letter-spacing: -0.008em; }
-.byline-sub { font-size: var(--t-meta); color: var(--ink-3); }
+.byline-sub { font-size: var(--t-meta); color: var(--ink-3); line-height: 1.35; }
 .byline-meta { font-size: var(--t-micro); color: var(--ink-3); font-family: var(--mono); }
 .byline.stack { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; }
 
@@ -329,9 +331,16 @@ select.profile:hover { border-color: var(--line-2); }
 /* ---------------------------------------------------------------- thread */
 .thread-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .thread-head {
-  border-bottom: 1px solid var(--line);
-  padding: var(--s5) var(--s5) var(--s4);
+  border: 3px solid var(--line);
+  border-radius: var(--r-lg);
+  margin: var(--s4) var(--s5) 0;
+  padding: var(--s5);
+  background: var(--n0);
 }
+.thread-head.imp-critical { border-color: var(--escalate); }
+.thread-head.imp-high { border-color: var(--route); }
+.thread-head.imp-settled { border-color: var(--auto); }
+.thread-head.imp-quiet { border-color: var(--line-2); }
 .thread-head-inner { max-width: 780px; margin: 0 auto; }
 .thread-head h1 {
   font-family: var(--display); font-size: var(--t-h1); font-weight: 400;
@@ -446,10 +455,14 @@ select.profile:hover { border-color: var(--line-2); }
 
 .cards { display: flex; flex-direction: column; gap: var(--s3); }
 .acard {
-  border: 1px solid var(--line); border-radius: var(--r-lg);
+  border: 3px solid var(--line); border-radius: var(--r-lg);
   background: var(--n0); box-shadow: var(--shadow-1);
   transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease), transform 160ms var(--ease);
 }
+.acard.imp-critical { border-color: var(--escalate); }
+.acard.imp-high { border-color: var(--route); }
+.acard.imp-settled { border-color: var(--auto); }
+.acard.imp-quiet { border-color: var(--line-2); }
 .acard:hover { border-color: var(--line-2); box-shadow: var(--shadow-2); transform: translateY(-1px); }
 .acard-head {
   display: flex; align-items: flex-start; justify-content: space-between;
@@ -512,15 +525,17 @@ table.tbl .why { color: var(--ink-2); max-width: 30ch; line-height: 1.5; }
   transition: border-color 140ms var(--ease), transform 140ms var(--ease), box-shadow 140ms var(--ease);
 }
 .btn:hover { border-color: var(--ink-3); transform: translateY(-1px); box-shadow: var(--shadow-1); }
-.btn-primary { background: var(--accent); color: #f2fbf9; border-color: transparent; }
+.btn-primary { background: var(--accent); color: #ffffff; border-color: transparent; }
 .btn-primary:hover { border-color: transparent; }
 .btn-secondary { background: transparent; }
+.actions .btn { min-height: 38px; padding: 8px 16px; white-space: nowrap; color: inherit; }
+.actions .btn-primary { color: #ffffff; }
 
 /* approval card primitives */
-.card { background: var(--n0); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s4); border-left: 2px solid var(--line-2); }
-.card.tone-auto { border-left-color: var(--auto); }
-.card.tone-route { border-left-color: var(--route); }
-.card.tone-escalate { border-left-color: var(--escalate); }
+.card { background: var(--n0); border: 3px solid var(--line); border-radius: var(--r-lg); padding: var(--s4); }
+.card.tone-auto { border-color: var(--auto); }
+.card.tone-route { border-color: var(--route); }
+.card.tone-escalate { border-color: var(--escalate); }
 .card-head .action-type { margin: var(--s2) 0 2px; font-size: var(--t-h3); letter-spacing: -0.015em; }
 .card-head .stance { margin: 0; color: var(--ink-2); font-size: var(--t-small); line-height: 1.5; }
 .verdict { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
@@ -539,9 +554,9 @@ table.tbl .why { color: var(--ink-2); max-width: 30ch; line-height: 1.5; }
 .field-label { font-size: var(--t-micro); letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
 .field-value { font-size: var(--t-body); font-weight: 550; margin-top: 2px; }
 .field-value.mono { font-family: var(--mono); font-weight: 400; font-size: var(--t-small); }
-.tone-auto { color: var(--auto); }
-.tone-route { color: var(--route); }
-.tone-escalate { color: var(--escalate); }
+.field-value.tone-auto, span.tone-auto { color: var(--auto); }
+.field-value.tone-route, span.tone-route { color: var(--route); }
+.field-value.tone-escalate, span.tone-escalate { color: var(--escalate); }
 .block { margin-top: var(--s3); padding-top: var(--s3); border-top: 1px solid var(--line); }
 .block-label { font-size: var(--t-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; margin-bottom: 5px; }
 .block-body { margin: 0; font-size: var(--t-small); color: var(--ink-2); line-height: 1.55; }
@@ -550,9 +565,9 @@ table.tbl .why { color: var(--ink-2); max-width: 30ch; line-height: 1.5; }
 .audit-conf { font-size: var(--t-small); color: var(--ink-2); }
 .reasons { margin: 0; padding-left: 17px; font-size: var(--t-small); color: var(--ink-2); line-height: 1.6; }
 .actions { display: flex; gap: var(--s2); flex-wrap: wrap; margin-top: var(--s4); }
-.btn-primary.tone-auto { background: var(--auto); }
-.btn-primary.tone-route { background: var(--route); }
-.btn-primary.tone-escalate { background: var(--escalate); }
+.btn-primary.tone-auto { background: var(--auto); color: #ffffff; }
+.btn-primary.tone-route { background: var(--route); color: #ffffff; }
+.btn-primary.tone-escalate { background: var(--escalate); color: #ffffff; }
 
 details.trace { margin-top: var(--s3); }
 details.trace summary {
@@ -595,21 +610,30 @@ details.trace pre {
   border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--n1);
   box-shadow: var(--shadow-1);
 }
-.pt-zone-label { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; fill: #9a9a94; font-family: var(--sans); }
+.pt-caption {
+  text-align: center; font-family: var(--sans); line-height: 1.2;
+  overflow: hidden;
+}
+.pt-name {
+  font-size: 11.5px; font-weight: 650; letter-spacing: -0.01em;
+  color: #17181a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pt-env {
+  font-size: 9.5px; color: #6d7076; margin-top: 2px;
+  letter-spacing: 0.01em;
+}
+.pt-zone-label { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; fill: #6d7076; font-family: var(--sans); }
 .pt-link { stroke: #c9c9c3; stroke-width: 1.6; }
 .pt-link.hot { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 5 4; animation: flow 900ms linear infinite; }
 @keyframes flow { to { stroke-dashoffset: -18; } }
-.pt-label { font-size: 10.5px; font-weight: 600; fill: #17181a; font-family: var(--sans); letter-spacing: -0.005em; }
-.pt-meta { font-size: 9px; fill: #9a9a94; font-family: var(--mono); }
-.pt-node { cursor: pointer; transition: opacity 160ms var(--ease); }
-.pt-node:hover { opacity: 0.72; }
-.pt-node.on .pt-label { fill: var(--accent); }
+.pt-node { cursor: pointer; }
+.pt-node:hover .plate { filter: brightness(0.985); }
 .agent-pin circle { fill: var(--accent); }
 .agent-pin text { font-size: 8.5px; font-weight: 700; fill: #f2fbf9; font-family: var(--sans); }
 .agent-pin.pin-working circle, circle.pin-working { fill: #8a5a0f; }
 .agent-pin.pin-blocked circle, circle.pin-blocked { fill: #a13232; }
 .agent-pin.pin-complete circle, circle.pin-complete { fill: #17714a; }
-.pt-legend text { font-size: 10px; fill: #56565a; font-family: var(--sans); }
+.pt-legend text { font-size: 11px; fill: #56565a; font-family: var(--sans); }
 .pt-legend .legend-pin { fill: var(--accent); }
 .pt-legend .legend-letter { font-size: 8.5px; font-weight: 700; fill: #f2fbf9; }
 
@@ -620,6 +644,92 @@ details.trace pre {
   font-size: var(--t-meta); margin: 2px 4px 2px 0; color: var(--ink-2);
 }
 .chip code { font-family: var(--mono); color: var(--accent); font-size: var(--t-micro); }
+
+/* ---------------------------------------------------------------- folds */
+.fold { margin: 0 0 var(--s5); }
+.fold > summary {
+  list-style: none; cursor: pointer;
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--s3); margin: 0 0 var(--s3);
+  padding-bottom: var(--s2); border-bottom: 1px solid var(--line);
+  user-select: none;
+}
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary h2 {
+  margin: 0; font-size: var(--t-meta); font-weight: 600;
+  letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3);
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.fold > summary h2::before {
+  content: ""; width: 6px; height: 6px; border-right: 1.6px solid var(--ink-3);
+  border-bottom: 1.6px solid var(--ink-3); transform: rotate(-45deg);
+  transition: transform 220ms var(--ease);
+}
+.fold[open] > summary h2::before { transform: rotate(45deg); }
+.fold > summary .note { font-size: var(--t-meta); color: var(--ink-3); }
+.fold-body { overflow: hidden; }
+
+/* ---------------------------------------------------------------- liquid-glass scope control (Apple optical recipe on the web) */
+.glass-toggle {
+  --thumb-x: 4px;
+  --thumb-w: 72px;
+  position: relative;
+  display: inline-flex; align-items: stretch;
+  padding: 4px; gap: 0;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.28);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.72),
+    inset 0 -1px 0 rgba(255,255,255,0.18),
+    0 1px 2px rgba(23,24,26,0.04),
+    0 10px 28px rgba(23,24,26,0.10);
+  border: 1px solid rgba(255,255,255,0.55);
+  user-select: none; touch-action: none;
+  min-width: 168px;
+}
+.glass-toggle .glass-thumb {
+  position: absolute; top: 4px; bottom: 4px; left: 0;
+  width: var(--thumb-w);
+  transform: translateX(var(--thumb-x)) scale(1.08);
+  transform-origin: center;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.42));
+  backdrop-filter: blur(18px) saturate(200%);
+  -webkit-backdrop-filter: blur(18px) saturate(200%);
+  box-shadow:
+    inset 1px 1px 0 rgba(255,255,255,0.9),
+    inset -1px -1px 0 rgba(255,255,255,0.25),
+    0 8px 20px rgba(23,24,26,0.12);
+  filter: url(#assent-glass);
+  pointer-events: none;
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1), width 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 0;
+}
+.glass-toggle.dragging .glass-thumb { transition: none; }
+.glass-toggle button {
+  position: relative; z-index: 1;
+  flex: 1; border: 0; background: transparent;
+  padding: 8px 18px; border-radius: 999px;
+  font-size: 13px; font-weight: 550; color: var(--ink-2);
+  transform: scale(1);
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1), color 200ms var(--ease);
+}
+.glass-toggle button.on {
+  color: var(--ink);
+  font-weight: 650;
+  transform: scale(1.12);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass-toggle, .glass-toggle .glass-thumb {
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    background: var(--n0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glass-toggle .glass-thumb, .glass-toggle button { transition: none; }
+}
 
 @media (max-width: 900px) {
   .shell { grid-template-columns: 0 1fr; }
@@ -640,6 +750,99 @@ _NAV_SCRIPT = """
     root.dataset.nav = next;
     try { localStorage.setItem('assent-nav', next); } catch (e) {}
   };
+
+  function ready(fn) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
+    else fn();
+  }
+
+  ready(function () {
+    document.querySelectorAll('details.fold[data-fold]').forEach(function (el) {
+      var key = 'assent-fold-' + el.dataset.fold;
+      try {
+        var saved = localStorage.getItem(key);
+        if (saved === 'closed') el.open = false;
+        if (saved === 'open') el.open = true;
+      } catch (e) {}
+      el.addEventListener('toggle', function () {
+        try { localStorage.setItem(key, el.open ? 'open' : 'closed'); } catch (e) {}
+      });
+    });
+
+    document.querySelectorAll('textarea[name="q"]').forEach(function (ta) {
+      var grow = function () {
+        ta.style.height = 'auto';
+        ta.style.height = Math.min(ta.scrollHeight, 140) + 'px';
+      };
+      ta.addEventListener('input', grow);
+      grow();
+    });
+
+    var toggle = document.querySelector('[data-glass-toggle]');
+    if (!toggle) return;
+    var form = toggle.closest('form');
+    var thumb = toggle.querySelector('.glass-thumb');
+    var buttons = Array.prototype.slice.call(toggle.querySelectorAll('button[data-scope]'));
+    var dragging = false;
+
+    function layout(animate) {
+      var on = toggle.querySelector('button.on') || buttons[0];
+      var track = toggle.getBoundingClientRect();
+      var r = on.getBoundingClientRect();
+      if (!animate) toggle.classList.add('dragging');
+      toggle.style.setProperty('--thumb-x', (r.left - track.left) + 'px');
+      toggle.style.setProperty('--thumb-w', r.width + 'px');
+      if (!animate) requestAnimationFrame(function () { toggle.classList.remove('dragging'); });
+    }
+
+    function select(value, submit) {
+      buttons.forEach(function (b) { b.classList.toggle('on', b.dataset.scope === value); });
+      toggle.dataset.value = value;
+      layout(true);
+      if (submit && form) {
+        var input = form.querySelector('input[name="scope"]');
+        if (input) input.value = value;
+        form.submit();
+      }
+    }
+
+    buttons.forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.preventDefault();
+        select(b.dataset.scope, true);
+      });
+    });
+
+    toggle.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0) return;
+      dragging = true;
+      toggle.classList.add('dragging');
+      toggle.setPointerCapture(e.pointerId);
+    });
+    toggle.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      var track = toggle.getBoundingClientRect();
+      var w = parseFloat(getComputedStyle(toggle).getPropertyValue('--thumb-w')) || 72;
+      var x = Math.min(Math.max(e.clientX - track.left - w / 2, 4), track.width - w - 4);
+      toggle.style.setProperty('--thumb-x', x + 'px');
+      var mid = track.left + track.width / 2;
+      buttons.forEach(function (b) { b.classList.toggle('on', (e.clientX >= mid) === (b.dataset.scope === 'team')); });
+    });
+    function endDrag(e) {
+      if (!dragging) return;
+      dragging = false;
+      toggle.classList.remove('dragging');
+      var track = toggle.getBoundingClientRect();
+      var next = (e.clientX >= track.left + track.width / 2) ? 'team' : 'you';
+      var current = toggle.dataset.value;
+      if (next !== current) select(next, true);
+      else layout(true);
+    }
+    toggle.addEventListener('pointerup', endDrag);
+    toggle.addEventListener('pointercancel', endDrag);
+    window.addEventListener('resize', function () { layout(false); });
+    layout(false);
+  });
 })();
 """
 
@@ -668,6 +871,18 @@ def _row_class(record: ChangeRecord) -> str:
     if record.state is ChangeState.AUTO_EXECUTED:
         return "auto"
     return ""
+
+
+def _importance(record: ChangeRecord) -> str:
+    """Visual weight of an alert box — driven by severity and gate stance, not decoration."""
+    sev = (record.signal.severity or "").lower()
+    if record.state is ChangeState.ESCALATED or sev == "critical":
+        return "critical"
+    if sev == "high" or record.state.open:
+        return "high"
+    if record.state in {ChangeState.AUTO_EXECUTED, ChangeState.EXECUTED}:
+        return "settled"
+    return "quiet"
 
 
 def _titlecase_action(raw: str) -> str:
@@ -738,7 +953,7 @@ def _rail(app: Assent, selected_id: Optional[str], tool: str) -> str:
         else:
             href = f"/change/{quote(r.id)}"
         rows.append(
-            f"""<a class="thread-row {_row_class(r)}{on}" href="{href}">
+            f"""<a class="thread-row {_row_class(r)} imp-{_importance(r)}{on}" href="{href}">
               <span class="state"></span>
               <span>
                 <span class="t">{_e(_alert_title(r))}</span>
@@ -751,7 +966,7 @@ def _rail(app: Assent, selected_id: Optional[str], tool: str) -> str:
     <aside class="rail">
       <div class="rail-inner">
         <div class="rail-head">
-          <span class="wordmark"><span class="dot"></span>Assent</span>
+          <span class="wordmark">Assent</span>
           <button class="icon-btn" type="button" onclick="assentToggleNav()"
                   title="Hide alerts" aria-label="Hide alerts">{_ICON_PANEL}</button>
         </div>
@@ -773,10 +988,6 @@ def _topbar(app: Assent, tool: str, actor: str, profile: str, crumb: str) -> str
         f'<a class="{"on" if tool == key else ""}" href="{href}">{_TOOL_ICON[key]}{label}</a>'
         for key, label, href in TOOLS
     )
-    profile_opts = "".join(
-        f'<option value="{pid}" {"selected" if pid == profile else ""} title="{_e(p["hint"])}">{_e(p["label"])}</option>'
-        for pid, p in PROFILES.items()
-    )
     return f"""
     <header class="topbar">
       <div class="top-left">
@@ -787,15 +998,10 @@ def _topbar(app: Assent, tool: str, actor: str, profile: str, crumb: str) -> str
       </div>
       <nav class="segment">{tools}</nav>
       <div class="top-right">
-        <form method="post" action="/profile" style="margin:0">
-          <select class="profile" name="profile" onchange="this.form.submit()" aria-label="Deployment profile">
-            {profile_opts}
-          </select>
-        </form>
         <span class="identity" title="You are acting as {_e(me.name)}">
           {ident.avatar(me, size="sm")}
           <span class="byline stack">
-            <span class="byline-name">{_e(me.name)}</span>
+            <span class="byline-row"><span class="byline-name">{_e(me.name)}</span></span>
             <span class="byline-sub">{_e(me.subtitle)}</span>
           </span>
         </span>
@@ -824,6 +1030,18 @@ def _shell(
 <script>{_NAV_SCRIPT}</script>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="assent-glass" x="-8%" y="-8%" width="116%" height="116%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="0.7" result="blur"/>
+      <feSpecularLighting in="blur" surfaceScale="5" specularConstant="0.85" specularExponent="28" lighting-color="#ffffff" result="spec">
+        <fePointLight x="-60" y="-80" z="200"/>
+      </feSpecularLighting>
+      <feComposite in="spec" in2="SourceAlpha" operator="in" result="specIn"/>
+      <feBlend in="SourceGraphic" in2="specIn" mode="screen"/>
+    </filter>
+  </defs>
+</svg>
 <div class="shell">
   {_rail(app, selected_id, tool)}
   <div class="main">
@@ -998,7 +1216,7 @@ def _thread_workspace(record: Optional[ChangeRecord], extras: Optional[Sequence[
     assignee = _assignee_for(record)
     return f"""
     <div class="thread-view">
-      <div class="thread-head">
+      <div class="thread-head imp-{_importance(record)}">
         <div class="thread-head-inner">
           {_pill_for(record)}
           <h1>{_e(_alert_title(record))}</h1>
@@ -1031,10 +1249,8 @@ def _approvals_workspace(app: Assent, actor: str, selected_id: Optional[str], sc
     history = _history_for(app, actor, scope)
     scope_label = "the team" if scope == "team" else (me.short or me.name)
 
-    seg = "".join(
-        f'<button class="{"on" if scope == key else ""}" type="submit" name="scope" value="{key}">{label}</button>'
-        for key, label in (("you", "You"), ("team", "Team"))
-    )
+    you_on = "on" if scope == "you" else ""
+    team_on = "on" if scope == "team" else ""
 
     cards = []
     for r in inbox:
@@ -1050,7 +1266,7 @@ def _approvals_workspace(app: Assent, actor: str, selected_id: Optional[str], sc
         href = f"/approvals?c={quote(r.id)}" if not expanded else f"/change/{quote(r.id)}"
         cta = "Open thread" if expanded else "Review"
         cards.append(
-            f"""<div class="acard">
+            f"""<div class="acard imp-{_importance(r)}">
               <div class="acard-head">
                 <div>
                   <div class="acard-title">{_e(_alert_title(r))}</div>
@@ -1125,9 +1341,14 @@ def _approvals_workspace(app: Assent, actor: str, selected_id: Optional[str], sc
           <p class="lede">Every write is routed to a named, authoritative human — never a
           shared queue. Audit follows the same scope you are viewing.</p>
         </div>
-        <form class="segment" method="post" action="/scope">
+        <form method="post" action="/scope" class="glass-form">
           <input type="hidden" name="next" value="/approvals">
-          {seg}
+          <input type="hidden" name="scope" value="{_e(scope)}">
+          <div class="glass-toggle" data-glass-toggle data-value="{_e(scope)}" role="tablist" aria-label="Approval scope">
+            <div class="glass-thumb" aria-hidden="true"></div>
+            <button class="{you_on}" type="button" data-scope="you">You</button>
+            <button class="{team_on}" type="button" data-scope="team">Team</button>
+          </div>
         </form>
       </div>
 
@@ -1137,22 +1358,26 @@ def _approvals_workspace(app: Assent, actor: str, selected_id: Optional[str], sc
         <div class="stat"><div class="n">{len(history)}</div><div class="l">decisions on record</div></div>
       </div>
 
-      <div class="subhead"><h2>Inbox</h2>
-        <span class="note">expand a card to approve, deny, or undo</span></div>
-      <div class="cards">{inbox_html}</div>
+      <details class="fold" data-fold="inbox" open>
+        <summary><h2>Inbox</h2><span class="note">{len(inbox)} waiting · click to collapse</span></summary>
+        <div class="fold-body"><div class="cards">{inbox_html}</div></div>
+      </details>
 
-      <div class="subhead"><h2>Audit</h2>
-        <span class="note">command · envelope · decider · why · rollback</span></div>
-      <div class="tbl-wrap">
-        <table class="tbl">
-          <thead><tr>
-            <th>Action</th><th>Target &amp; envelope</th><th>Outcome</th>
-            <th>Decided by</th><th>Owner of record</th><th>Why the engine gated</th><th>Rollback</th>
-          </tr></thead>
-          <tbody>{table}</tbody>
-        </table>
-      </div>
-      {integrity}
+      <details class="fold" data-fold="audit" open>
+        <summary><h2>Audit</h2><span class="note">command · envelope · decider · why · rollback</span></summary>
+        <div class="fold-body">
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr>
+                <th>Action</th><th>Target &amp; envelope</th><th>Outcome</th>
+                <th>Decided by</th><th>Owner of record</th><th>Why the engine gated</th><th>Rollback</th>
+              </tr></thead>
+              <tbody>{table}</tbody>
+            </table>
+          </div>
+          {integrity}
+        </div>
+      </details>
     </div></div>
     """
 

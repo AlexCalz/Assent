@@ -179,7 +179,8 @@ def byline(
     meta_html = f'<span class="byline-meta">{_e(meta)}</span>' if meta else ""
     return f"""
     <span class="byline">
-      <span class="byline-name">{_e(p.name)}</span>{tag}{sub}{meta_html}
+      <span class="byline-row"><span class="byline-name">{_e(p.name)}</span>{tag}</span>
+      {sub}{meta_html}
     </span>"""
 
 
