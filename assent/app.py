@@ -22,6 +22,7 @@ from assent.dashboard import (
     PEOPLE,
     PROFILES,
     answer_question,
+    parse_composer_tools,
     render_app,
     render_change,
     render_ledger_page,
@@ -283,8 +284,9 @@ class _Handler(BaseHTTPRequestHandler):
                         chats = {}
                         type(self).chats = chats
                     thread = chats.setdefault(change_id, [])
+                    tools = parse_composer_tools(form.get("tools") or [])
                     thread.append({"role": "user", "text": question})
-                    thread.append({"role": "assistant", "text": answer_question(record, question)})
+                    thread.append({"role": "assistant", "text": answer_question(record, question, tools=tools)})
                 self._redirect(f"/change/{change_id}#reply")
                 return
             self._not_found()

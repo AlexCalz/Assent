@@ -70,6 +70,15 @@ TOOLS = (
     ("infra", "Infrastructure", "/infra"),
 )
 
+# Retrieval tools equipped from the composer + menu. Incident-package retrieval
+# is always on; these constrain the next answer. Questions never change a gate.
+COMPOSER_TOOLS = (
+    ("owner_blast", "Owner & blast", "Owner, environment, blast radius, reversibility"),
+    ("why_gated", "Why gated", "Gate decision and reasons"),
+    ("rollback", "Rollback plan", "Undo / rollback for this change"),
+)
+_COMPOSER_TOOL_IDS = {row[0] for row in COMPOSER_TOOLS}
+
 _TOOL_ICON = {
     "chat": '<svg viewBox="0 0 16 16" class="ico"><path d="M2.5 3.2h11v7.2H6.4L3.4 12.8v-2.4H2.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>',
     "approvals": '<svg viewBox="0 0 16 16" class="ico"><path d="M3 8.4l3 3 7-7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -316,41 +325,57 @@ select.profile:hover { border-color: var(--line-2); }
 /* ---------------------------------------------------------------- thread */
 .thread-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .thread-head {
-  display: flex; align-items: flex-start; justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between;
   gap: var(--s4);
-  padding: var(--s4) var(--s5);
+  padding: 10px var(--s5);
   border-bottom: 1px solid var(--line);
 }
 .thread-head-inner { min-width: 0; flex: 1; }
-.thread-head-actions { flex: none; padding-top: 2px; }
+.thread-head-actions { flex: none; }
 .gate-btn.on { background: var(--n2); border-color: var(--ink-3); }
+.thread-title {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  margin: 4px 0 2px;
+}
 .thread-head h1 {
-  font-family: var(--sans); font-size: 22px; font-weight: 600;
-  letter-spacing: -0.025em; line-height: 1.2; margin: var(--s2) 0 6px;
+  font-family: var(--sans); font-size: 15px; font-weight: 600;
+  letter-spacing: -0.018em; line-height: 1.3; margin: 0;
+}
+.thread-target {
+  font-family: var(--mono); font-size: var(--t-meta); font-weight: 450;
+  color: var(--ink-3);
 }
 .thread-head .sub {
   display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
-  font-size: var(--t-small); color: var(--ink-3);
+  font-size: var(--t-meta); color: var(--ink-3);
 }
-.thread-head .sub code { font-family: var(--mono); font-size: var(--t-meta); }
+.thread-head .sub code { font-family: var(--mono); font-size: var(--t-micro); }
 
 .scroll { flex: 1; overflow-y: auto; }
 .scroll-inner { max-width: 780px; margin: 0 auto; padding: var(--s5) var(--s5) var(--s4); }
 
-.msg { padding: 0 0 var(--s5); }
+.msg { padding: 0 0 18px; font-family: var(--sans); }
 .thread-view.has-reply .msg { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   .shell, .rail-inner { transition: none; }
 }
 
-.msg-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
-.msg-body { padding-left: 38px; margin-top: 6px; }
-.msg-body p { margin: 0 0 var(--s2); font-size: var(--t-read); line-height: 1.6; color: var(--ink); }
+.msg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s3); }
+.msg-head .identity { align-items: flex-start; }
+.msg-head .avatar { margin-top: 1px; }
+.msg-head .byline-name { font-size: var(--t-body); font-weight: 600; }
+.msg-head .byline-sub { font-size: var(--t-micro); }
+.msg-body {
+  font-family: var(--sans); font-size: var(--t-read); font-weight: 400;
+  line-height: 1.65; color: var(--ink);
+  padding-left: 38px; margin-top: 2px;
+}
+.msg-body p { margin: 0 0 8px; font-size: inherit; font-weight: inherit; line-height: inherit; color: inherit; }
 .msg-body p:last-child { margin-bottom: 0; }
-.msg-body .quiet { color: var(--ink-2); font-size: var(--t-body); }
-.msg-body ul { margin: var(--s2) 0 0; padding-left: 18px; }
-.msg-body li { font-size: var(--t-body); color: var(--ink-2); line-height: 1.6; margin-bottom: 3px; }
-.msg-body code { font-family: var(--mono); font-size: 12.5px; background: var(--n2); padding: 1px 5px; border-radius: 5px; }
+.msg-body .quiet { color: var(--ink-2); font-size: inherit; font-weight: 400; line-height: inherit; }
+.msg-body ul { margin: 6px 0 0; padding-left: 18px; }
+.msg-body li { font-size: inherit; font-weight: 400; color: var(--ink-2); line-height: inherit; margin-bottom: 3px; }
+.msg-body code { font-family: var(--mono); font-size: 12.5px; font-weight: 450; background: var(--n2); padding: 1px 5px; border-radius: 5px; }
 
 .msg.mine .msg-body {
   padding-left: 0; margin-left: 38px;
@@ -396,36 +421,71 @@ select.profile:hover { border-color: var(--line-2); }
   padding: var(--s4) var(--s5) var(--s4);
   background: var(--n1);
 }
-.composer-file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .composer-box {
   max-width: 780px; margin: 0 auto;
-  display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end;
-  border: 1px solid var(--line); border-radius: 28px;
-  padding: 8px 8px 8px 10px; background: var(--n0);
+  display: flex; flex-direction: column; gap: 4px;
+  border: 1px solid var(--line); border-radius: 22px;
+  padding: 10px 12px 8px; background: var(--n0);
   box-shadow: var(--shadow-1);
   transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease);
 }
 .composer-box:focus-within { border-color: var(--line-2); box-shadow: var(--shadow-2); }
+.composer-input { display: flex; align-items: center; min-height: 28px; }
+.composer-input textarea {
+  display: block; width: 100%; border: 0; resize: none; outline: none;
+  background: transparent; min-height: 26px; max-height: 140px;
+  padding: 4px 4px; font-size: var(--t-read); font-weight: 400;
+  line-height: 1.45; overflow-y: auto;
+}
+.composer-input textarea::placeholder {
+  color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.composer-toolbar {
+  display: flex; align-items: center; gap: 8px; min-height: 32px;
+}
+.composer-left {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  min-width: 0; flex: 1;
+}
+.composer-plus-wrap { position: relative; flex: none; }
 .composer-plus {
-  flex: none; width: 28px; height: 28px; margin-bottom: 2px; padding: 0;
+  flex: none; width: 28px; height: 28px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid var(--line-2); border-radius: 50%;
   background: transparent; color: var(--ink-2);
 }
-.composer-plus:hover { border-color: var(--ink-3); color: var(--ink); background: var(--n1); }
+.composer-plus:hover,
+.composer-plus[aria-expanded="true"] { border-color: var(--ink-3); color: var(--ink); background: var(--n1); }
 .composer-plus svg { width: 14px; height: 14px; }
-.composer-pills {
-  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
-  flex: none; padding-bottom: 3px;
+.composer-menu {
+  position: absolute; left: 0; bottom: calc(100% + 8px);
+  min-width: 248px; padding: 6px; z-index: 40;
+  background: var(--n0); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow-2);
 }
+.composer-menu[hidden] { display: none; }
+.composer-menu button {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  width: 100%; border: 0; background: transparent;
+  padding: 8px 10px; border-radius: 8px; text-align: left;
+}
+.composer-menu button:hover:not(:disabled) { background: var(--n2); }
+.composer-menu button:disabled { opacity: 0.42; }
+.composer-menu-title { font-size: var(--t-small); font-weight: 600; color: var(--ink); }
+.composer-menu-hint { font-size: var(--t-micro); color: var(--ink-3); line-height: 1.35; }
+.composer-pills {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0;
+}
+.composer-pills[hidden] { display: none; }
 .composer-pill {
   display: inline-flex; align-items: center; gap: 6px;
   height: 26px; padding: 0 4px 0 8px; border-radius: 999px;
   font-size: var(--t-meta); font-weight: 550; letter-spacing: -0.01em;
   white-space: nowrap; line-height: 1;
+  background: #eceaf8; color: #4b3d9e;
 }
-.composer-pill.skill { background: #eceaf8; color: #4b3d9e; }
-.composer-pill.gate { background: var(--n2); color: var(--ink-2); border: 1px solid var(--line); }
+.composer-pill[data-pill="why_gated"] { background: var(--n2); color: var(--ink-2); border: 1px solid var(--line); }
+.composer-pill[data-pill="rollback"] { background: var(--accent-2); color: var(--accent); }
 .composer-pill > svg { width: 12px; height: 12px; flex: none; }
 .composer-pill .x {
   width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%;
@@ -434,11 +494,6 @@ select.profile:hover { border-color: var(--line-2); }
 }
 .composer-pill .x:hover { opacity: 1; background: rgba(23,24,26,0.07); }
 .composer-pill .x svg { width: 10px; height: 10px; }
-.composer-box textarea {
-  flex: 1 1 140px; min-width: 96px; border: 0; resize: none; outline: none;
-  background: transparent; min-height: 24px; max-height: 140px;
-  padding: 6px 4px 8px; font-size: var(--t-read); line-height: 1.5;
-}
 .composer-tools {
   display: flex; align-items: center; gap: 2px;
   flex: none; margin-left: auto;
@@ -845,21 +900,97 @@ _NAV_SCRIPT = """
       });
     }
 
-    document.querySelectorAll('[data-dismiss-pill]').forEach(function (btn) {
-      btn.addEventListener('click', function (e) {
+    document.querySelectorAll('form.composer').forEach(function (form) {
+      var plus = form.querySelector('[data-add-context]');
+      var menu = form.querySelector('.composer-menu');
+      var pills = form.querySelector('[data-equipped]');
+      var fields = form.querySelector('[data-tool-fields]');
+      var tpl = form.querySelector('#composer-pill-template');
+      if (!plus || !menu || !pills || !fields) return;
+      var wrap = plus.closest('.composer-plus-wrap') || plus.parentElement;
+
+      function ids() {
+        return Array.prototype.map.call(fields.querySelectorAll('input[name="tools"]'), function (el) {
+          return el.value;
+        });
+      }
+      function sync() {
+        var have = ids();
+        menu.querySelectorAll('[data-equip]').forEach(function (btn) {
+          var on = have.indexOf(btn.getAttribute('data-equip')) !== -1;
+          btn.disabled = on;
+          btn.setAttribute('aria-disabled', on ? 'true' : 'false');
+        });
+        if (have.length) pills.removeAttribute('hidden');
+        else pills.setAttribute('hidden', '');
+        plus.setAttribute('aria-expanded', menu.hasAttribute('hidden') ? 'false' : 'true');
+      }
+      function closeMenu() {
+        menu.setAttribute('hidden', '');
+        plus.setAttribute('aria-expanded', 'false');
+      }
+
+      plus.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (menu.hasAttribute('hidden')) {
+          menu.removeAttribute('hidden');
+          plus.setAttribute('aria-expanded', 'true');
+        } else {
+          closeMenu();
+        }
+      });
+
+      menu.querySelectorAll('[data-equip]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          var id = btn.getAttribute('data-equip');
+          if (!id || ids().indexOf(id) !== -1) { closeMenu(); return; }
+          var label = btn.getAttribute('data-label') || btn.textContent.trim();
+          var node;
+          if (tpl && tpl.content && tpl.content.firstElementChild) {
+            node = tpl.content.firstElementChild.cloneNode(true);
+          } else {
+            node = document.createElement('span');
+            node.className = 'composer-pill';
+            node.innerHTML = '<span data-label></span><button class="x" type="button" data-dismiss-pill aria-label="Remove">×</button>';
+          }
+          node.setAttribute('data-pill', id);
+          var lab = node.querySelector('[data-label]') || node.querySelector('span');
+          if (lab) lab.textContent = label;
+          var rm = node.querySelector('[data-dismiss-pill]');
+          if (rm) rm.setAttribute('aria-label', 'Remove ' + label);
+          pills.appendChild(node);
+          var hid = document.createElement('input');
+          hid.type = 'hidden';
+          hid.name = 'tools';
+          hid.value = id;
+          fields.appendChild(hid);
+          closeMenu();
+          sync();
+        });
+      });
+
+      pills.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-dismiss-pill]');
+        if (!btn) return;
         e.preventDefault();
         var pill = btn.closest('[data-pill]');
+        var id = pill ? pill.getAttribute('data-pill') : '';
         if (pill) pill.remove();
+        Array.prototype.forEach.call(fields.querySelectorAll('input[name="tools"]'), function (el) {
+          if (el.value === id) el.remove();
+        });
+        sync();
       });
-    });
 
-    document.querySelectorAll('[data-add-context]').forEach(function (btn) {
-      btn.addEventListener('click', function (e) {
-        e.preventDefault();
-        var form = btn.closest('form');
-        var input = form && form.querySelector('.composer-file');
-        if (input) input.click();
+      document.addEventListener('click', function (e) {
+        if (!menu.hasAttribute('hidden') && wrap && !wrap.contains(e.target)) closeMenu();
       });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeMenu();
+      });
+      sync();
     });
 
     try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) {}
@@ -927,10 +1058,20 @@ def _titlecase_action(raw: str) -> str:
     return raw.replace("_", " ").strip().capitalize()
 
 
-def _alert_title(record: ChangeRecord) -> str:
+def _alert_action(record: ChangeRecord) -> str:
     if record.change is not None:
-        return f"{_titlecase_action(record.change.action.type)} · {record.change.action.target}"
-    return f"{_titlecase_action(record.signal.kind)} · {record.signal.target}"
+        return _titlecase_action(record.change.action.type)
+    return _titlecase_action(record.signal.kind)
+
+
+def _alert_target(record: ChangeRecord) -> str:
+    if record.change is not None:
+        return record.change.action.target
+    return record.signal.target
+
+
+def _alert_title(record: ChangeRecord) -> str:
+    return f"{_alert_action(record)} · {_alert_target(record)}"
 
 
 def _alert_preview(record: ChangeRecord) -> str:
@@ -1098,23 +1239,65 @@ def _card_for(record: ChangeRecord) -> str:
     )
 
 
-def answer_question(record: ChangeRecord, question: str) -> str:
+def parse_composer_tools(raw: Optional[Sequence[str]] = None) -> List[str]:
+    """Normalize POST ``tools`` values to known composer tool ids."""
+    found: List[str] = []
+    for item in raw or ():
+        for part in str(item).replace(",", " ").split():
+            key = part.strip()
+            if key in _COMPOSER_TOOL_IDS and key not in found:
+                found.append(key)
+    return found
+
+
+def _tool_answer(pkg, tool_id: str) -> str:
+    if tool_id == "owner_blast":
+        return (
+            f"Authoritative owner is {pkg.owner} in {pkg.environment}. "
+            f"Blast radius: {pkg.blast_radius_narrative}. "
+            f"Reversibility: {pkg.reversibility}. "
+            "Incomplete ownership degrades to a human, never a guess."
+        )
+    if tool_id == "why_gated":
+        reasons = "; ".join(pkg.gate_reasons) or "No gate reasons recorded."
+        return f"The engine decided {pkg.decision} because: {reasons} Confidence never authorizes."
+    if tool_id == "rollback":
+        return (
+            f"Rollback plan: {pkg.rollback}. "
+            "Every write has an undo; no undo plan means no autonomy."
+        )
+    return ""
+
+
+def answer_question(
+    record: ChangeRecord,
+    question: str,
+    tools: Optional[Sequence[str]] = None,
+) -> str:
     """Tiny retrieval over the incident package — no LLM, never a gate."""
     pkg = build_package(record)
+    equipped = parse_composer_tools(tools)
+    if equipped:
+        return " ".join(filter(None, (_tool_answer(pkg, tid) for tid in equipped)))
     q = question.lower()
     if "rollback" in q or "undo" in q:
-        return f"Rollback plan: {pkg.rollback}. Every write has an undo; no undo plan means no autonomy."
+        return _tool_answer(pkg, "rollback")
     if "owner" in q or "who" in q:
-        return f"Authoritative owner is {pkg.owner} in {pkg.environment}. Incomplete ownership degrades to a human, never a guess."
+        return (
+            f"Authoritative owner is {pkg.owner} in {pkg.environment}. "
+            "Incomplete ownership degrades to a human, never a guess."
+        )
     if "blast" in q or "radius" in q:
-        return f"Blast radius: {pkg.blast_radius_narrative}. The gate keys on risk-to-act — blast radius × reversibility × environment × confidence."
+        return (
+            f"Blast radius: {pkg.blast_radius_narrative}. "
+            "The gate keys on risk-to-act — blast radius × reversibility × environment × confidence."
+        )
     if "command" in q or "action" in q:
         if record.change is None:
             return "No catalogued command — this signal still needs a playbook."
         return f"Exact command: {record.change.action.type} → {record.change.action.target}."
     if "why" in q or "gate" in q or "decid" in q:
-        reasons = "; ".join(pkg.gate_reasons) or "No gate reasons recorded."
-        return f"The engine decided {pkg.decision} because: {reasons} Confidence never authorizes."
+        return _tool_answer(pkg, "why_gated")
     if "audit" in q:
         return pkg.technical_summary
     return (
@@ -1241,6 +1424,18 @@ def _gate_panel(record: ChangeRecord) -> str:
     </aside>"""
 
 
+def _composer_menu() -> str:
+    items = []
+    for tid, label, hint in COMPOSER_TOOLS:
+        items.append(
+            f"""<button type="button" role="menuitem" data-equip="{_e(tid)}" data-label="{_e(label)}">
+              <span class="composer-menu-title">{_e(label)}</span>
+              <span class="composer-menu-hint">{_e(hint)}</span>
+            </button>"""
+        )
+    return "".join(items)
+
+
 def _thread_workspace(record: Optional[ChangeRecord], extras: Optional[Sequence[dict]] = None) -> str:
     if record is None:
         return """<div class="page"><div class="page-inner">
@@ -1255,7 +1450,10 @@ def _thread_workspace(record: Optional[ChangeRecord], extras: Optional[Sequence[
       <div class="thread-head">
         <div class="thread-head-inner">
           <div class="signals">{_sev_chip(record)}{_pill_for(record)}</div>
-          <h1>{_e(_alert_title(record))}</h1>
+          <div class="thread-title">
+            <h1>{_e(_alert_action(record))}</h1>
+            <code class="thread-target">{_e(_alert_target(record))}</code>
+          </div>
           <div class="sub">
             <code>{_e(record.id)}</code>
             <span>routed to {_e(assignee.name)} · {_e(assignee.subtitle)}</span>
@@ -1273,33 +1471,39 @@ def _thread_workspace(record: Optional[ChangeRecord], extras: Optional[Sequence[
       </div>
       <form class="composer" method="post" action="/ask">
         <input type="hidden" name="id" value="{_e(record.id)}">
-        <input class="composer-file" type="file" multiple tabindex="-1" aria-hidden="true">
+        <div data-tool-fields></div>
         <div class="composer-box">
-          <button class="composer-plus" type="button" data-add-context title="Add context" aria-label="Add context">{_ICON_PLUS}</button>
-          <div class="composer-pills">
-            <span class="composer-pill skill" data-pill>
-              {_ICON_SKILL}<span>Incident package</span>
-              <button class="x" type="button" data-dismiss-pill aria-label="Dismiss Incident package">{_ICON_X}</button>
-            </span>
-            <span class="composer-pill gate" data-pill>
-              {_ICON_GATE_SM}<span>Policy gate</span>
-              <button class="x" type="button" data-dismiss-pill aria-label="Dismiss Policy gate">{_ICON_X}</button>
-            </span>
+          <div class="composer-input">
+            <textarea name="q" rows="1" placeholder="Ask about this change…"></textarea>
           </div>
-          <textarea name="q" rows="1" placeholder="Ask about the owner, blast radius, rollback, or why this was gated…"></textarea>
-          <div class="composer-tools">
-            <label class="composer-model" title="Answers are retrieval over this incident package">
-              <select aria-label="Model">
-                <option selected>Assent · retrieval</option>
-              </select>
-              {_ICON_CHEVRON}
-            </label>
-            <button class="composer-mic" type="button" data-dictate aria-label="Dictate" aria-pressed="false" title="Dictate">{_ICON_MIC}</button>
-            <button class="composer-send" type="submit" aria-label="Send" title="Send">{_ICON_SEND}</button>
+          <div class="composer-toolbar">
+            <div class="composer-left">
+              <div class="composer-plus-wrap">
+                <button class="composer-plus" type="button" data-add-context title="Add tools" aria-label="Add tools" aria-haspopup="menu" aria-expanded="false">{_ICON_PLUS}</button>
+                <div class="composer-menu" role="menu" hidden>{_composer_menu()}</div>
+              </div>
+              <div class="composer-pills" data-equipped hidden></div>
+            </div>
+            <div class="composer-tools">
+              <label class="composer-model" title="Answers are retrieval over this incident package">
+                <select aria-label="Model">
+                  <option selected>Assent · retrieval</option>
+                </select>
+                {_ICON_CHEVRON}
+              </label>
+              <button class="composer-mic" type="button" data-dictate aria-label="Dictate" aria-pressed="false" title="Dictate">{_ICON_MIC}</button>
+              <button class="composer-send" type="submit" aria-label="Send" title="Send">{_ICON_SEND}</button>
+            </div>
           </div>
         </div>
+        <template id="composer-pill-template">
+          <span class="composer-pill" data-pill>
+            <span data-label></span>
+            <button class="x" type="button" data-dismiss-pill aria-label="Remove">{_ICON_X}</button>
+          </span>
+        </template>
         <div class="composer-hint">
-          <span>Questions never change a gate</span>
+          <span>Ask about owner, blast, rollback, or why it was gated. Questions never change a gate.</span>
           <span>⌘ Enter / Ctrl+Enter to send</span>
         </div>
       </form>

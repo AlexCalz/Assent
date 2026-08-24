@@ -2,7 +2,7 @@
 
 from assent.agents import AgentStatus, roster_for
 from assent.app import demo_app, inject_demo_scenario, render_ledger, render_queue
-from assent.dashboard import render_change, render_mission, render_overview
+from assent.dashboard import answer_question, render_change, render_mission, render_overview
 from assent.package import build_package
 
 
@@ -103,6 +103,15 @@ def test_change_package_page():
     record = app.queue()[0]
     page = render_change(app, record, actor="alex", profile="cloud")
     assert record.id in page
+    action = (
+        record.change.action.type.replace("_", " ").capitalize()
+        if record.change is not None
+        else record.signal.kind.replace("_", " ").capitalize()
+    )
+    target = record.change.action.target if record.change is not None else record.signal.target
+    assert action in page
+    assert target in page
+    assert f"{action} · {target}</h1>" not in page
     assert "Executive summary" in page
     assert "Agent reasoning trace" in page
     assert "Gated remediation" in page
@@ -123,13 +132,77 @@ def test_composer_is_cursor_like_input_bar():
     assert 'action="/ask"' in page
     assert 'aria-label="Dictate"' in page or "data-dictate" in page
     assert 'aria-label="Send"' in page or "composer-send" in page
-    assert "composer-plus" in page or 'aria-label="Add context"' in page
-    assert "composer-pill" in page
-    assert "Incident package" in page
+    assert "composer-plus" in page or 'aria-label="Add tools"' in page
+    assert "composer-menu" in page
+    assert "Owner &amp; blast" in page or "Owner & blast" in page
+    assert "Why gated" in page
+    assert "Rollback plan" in page
+    assert "Incident package" not in page
+    assert "Policy gate" not in page
+    assert 'data-equipped hidden' in page or 'data-equipped" hidden' in page
+    assert "Ask about this change" in page
     assert "Assent · retrieval" in page
     assert "Enter" in page
     assert "Questions never change a gate" in page
     assert ">Ask</button>" not in page
+
+
+def test_composer_tools_shape_retrieval_on_any_thread():
+    app = demo_app()
+    record = next(r for r in app.records() if r.change is not None)
+    blast = answer_question(record, "summarize this", tools=["owner_blast"])
+    assert record.change.owner.id in blast or "owner" in blast.lower()
+    assert "blast" in blast.lower()
+    assert "reversib" in blast.lower()
+    gated = answer_question(record, "summarize this", tools=["why_gated"])
+    assert "decided" in gated.lower()
+    assert "confidence never authorizes" in gated.lower()
+    rollback = answer_question(record, "summarize this", tools=["rollback"])
+    assert "rollback" in rollback.lower()
+    both = answer_question(record, "hello", tools=["owner_blast", "rollback"])
+    assert "blast" in both.lower() and "rollback" in both.lower()
+    general = answer_question(record, "what is going on")
+    assert "Ask about the owner" in general or "executive" in general.lower() or "Gate decision" in general
+
+    triage = next(r for r in app.records() if r.change is None)
+    triage_page = render_change(app, triage, actor="you", profile="cloud")
+    assert "composer-plus" in triage_page
+    assert "Owner &amp; blast" in triage_page or "Owner & blast" in triage_page
+    triage_why = answer_question(triage, "anything", tools=["why_gated"])
+    assert "decided" in triage_why.lower()
+    assert "triage" in triage_why.lower() or "playbook" in triage_why.lower()
+
+
+def test_ask_http_passes_equipped_tools():
+    import threading
+    import time
+    import urllib.parse
+    import urllib.request
+    from http.server import ThreadingHTTPServer
+
+    from assent.app import _Handler
+
+    app = demo_app()
+    record = next(r for r in app.records() if r.change is not None)
+    handler = type("H", (_Handler,), {"app": app, "actor": "you", "profile": "cloud", "chats": {}, "scope": "you"})
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        time.sleep(0.05)
+        base = f"http://127.0.0.1:{srv.server_port}"
+        data = urllib.parse.urlencode([
+            ("id", record.id),
+            ("q", "summarize this"),
+            ("tools", "owner_blast"),
+        ]).encode()
+        urllib.request.urlopen(base + "/ask", data=data)
+        page = urllib.request.urlopen(base + f"/change/{record.id}").read().decode()
+        assert "Blast radius" in page
+        assert "Reversibility" in page
+        assert 'id="reply"' in page
+    finally:
+        srv.shutdown()
+        srv.server_close()
 
 
 def test_thread_reply_stays_pinned_to_latest():
