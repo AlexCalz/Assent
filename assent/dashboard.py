@@ -424,7 +424,7 @@ select.profile:hover { border-color: var(--line-2); }
 .composer-box {
   max-width: 780px; margin: 0 auto;
   display: flex; flex-direction: column; gap: 4px;
-  border: 1px solid var(--line); border-radius: 22px;
+  border: 1px solid var(--line); border-radius: 28px;
   padding: 10px 12px 8px; background: var(--n0);
   box-shadow: var(--shadow-1);
   transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease);
@@ -484,6 +484,7 @@ select.profile:hover { border-color: var(--line-2); }
   white-space: nowrap; line-height: 1;
   background: #eceaf8; color: #4b3d9e;
 }
+.composer-pill.gate,
 .composer-pill[data-pill="why_gated"] { background: var(--n2); color: var(--ink-2); border: 1px solid var(--line); }
 .composer-pill[data-pill="rollback"] { background: var(--accent-2); color: var(--accent); }
 .composer-pill > svg { width: 12px; height: 12px; flex: none; }
@@ -991,6 +992,14 @@ _NAV_SCRIPT = """
         if (e.key === 'Escape') closeMenu();
       });
       sync();
+
+      form.querySelectorAll('[data-dismiss-chrome]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          var pill = btn.closest('[data-chrome-pill]');
+          if (pill) pill.remove();
+        });
+      });
     });
 
     try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) {}
@@ -1479,8 +1488,18 @@ def _thread_workspace(record: Optional[ChangeRecord], extras: Optional[Sequence[
           <div class="composer-toolbar">
             <div class="composer-left">
               <div class="composer-plus-wrap">
-                <button class="composer-plus" type="button" data-add-context title="Add tools" aria-label="Add tools" aria-haspopup="menu" aria-expanded="false">{_ICON_PLUS}</button>
+                <button class="composer-plus" type="button" data-add-context title="Add context" aria-label="Add context" aria-haspopup="menu" aria-expanded="false">{_ICON_PLUS}</button>
                 <div class="composer-menu" role="menu" hidden>{_composer_menu()}</div>
+              </div>
+              <div class="composer-pills" data-chrome>
+                <span class="composer-pill skill" data-chrome-pill>
+                  {_ICON_SKILL}<span>Incident package</span>
+                  <button class="x" type="button" data-dismiss-chrome aria-label="Dismiss Incident package">{_ICON_X}</button>
+                </span>
+                <span class="composer-pill gate" data-chrome-pill>
+                  {_ICON_GATE_SM}<span>Policy gate</span>
+                  <button class="x" type="button" data-dismiss-chrome aria-label="Dismiss Policy gate">{_ICON_X}</button>
+                </span>
               </div>
               <div class="composer-pills" data-equipped hidden></div>
             </div>

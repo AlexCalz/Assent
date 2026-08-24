@@ -132,13 +132,14 @@ def test_composer_is_cursor_like_input_bar():
     assert 'action="/ask"' in page
     assert 'aria-label="Dictate"' in page or "data-dictate" in page
     assert 'aria-label="Send"' in page or "composer-send" in page
-    assert "composer-plus" in page or 'aria-label="Add tools"' in page
+    assert "composer-plus" in page or 'aria-label="Add context"' in page
     assert "composer-menu" in page
     assert "Owner &amp; blast" in page or "Owner & blast" in page
     assert "Why gated" in page
     assert "Rollback plan" in page
-    assert "Incident package" not in page
-    assert "Policy gate" not in page
+    assert "Incident package" in page
+    assert "Policy gate" in page
+    assert "composer-pill" in page
     assert 'data-equipped hidden' in page or 'data-equipped" hidden' in page
     assert "Ask about this change" in page
     assert "Assent · retrieval" in page
