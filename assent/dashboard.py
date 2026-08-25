@@ -1,33 +1,34 @@
-"""Dashboard shell — Assent mission control with Trident-inspired IA.
+"""Assent shell — desktop app layout.
 
-Takes the surfaces TRIDENT-AI proved useful (agent status, incident package,
-remediation panel, audit trail, demo inject, three-column ops layout) and
-grounds them in Assent's gating thesis:
+Structure follows the conventions people already have muscle memory for
+(ChatGPT / Cursor / Linear): a collapsible thread rail on the left, a tool
+segment in the top bar, and one focused workspace.
 
-* Approvals are ownership-routed Changes, not free-form MCP options
-* Confidence is shown but never authorizes
-* Dual deploy profiles (Cloud Personal / Private Tenant) share one shell
+Two rules the visual system exists to serve:
 
-Brand: ink + stone atmosphere, Fraunces for the wordmark, Sora for UI. Not
-Trident's neon-teal cyber look; not purple-on-white.
+* An **agent** speaking is unmistakably an agent — agent mark, capability line,
+  never a job title.
+* A **person** speaking carries their name *and* their org job title, because
+  the product's whole claim is that a named, authoritative human assented.
 """
 
 from __future__ import annotations
 
 import html
 import json
-from typing import List, Optional
+from typing import Dict, List, Optional, Sequence
 from urllib.parse import quote
 
-from assent.agents import AgentView, roster_for
+from assent import identity as ident
+from assent.agents import roster_for
 from assent.approval_card import render_card
-from assent.package import IncidentPackage, build_package
+from assent.package import build_package
 from assent.policy import PolicyResult
 from assent.runtime import Assent, ChangeRecord, ChangeState
+from assent.topology import render_topology
 
 _e = html.escape
 
-# Dual deployment profiles — same UI shell, different defaults.
 PROFILES = {
     "cloud": {
         "id": "cloud",
@@ -43,9 +44,12 @@ PROFILES = {
     },
 }
 
+# Kept for the app's actor switching; identity data itself lives in identity.py.
+PEOPLE = ident.PEOPLE
+
 _STATE_LABEL = {
     ChangeState.NEEDS_TRIAGE: "needs triage",
-    ChangeState.PENDING_APPROVAL: "awaiting your approval",
+    ChangeState.PENDING_APPROVAL: "awaiting approval",
     ChangeState.ESCALATED: "escalated",
     ChangeState.AUTO_EXECUTED: "auto-executed",
     ChangeState.EXECUTED: "executed after approval",
@@ -60,408 +64,1205 @@ _STATE_CONTROLS = {
     ChangeState.EXECUTED: "undo",
 }
 
+TOOLS = (
+    ("chat", "Threads", "/"),
+    ("approvals", "Approvals", "/approvals"),
+    ("infra", "Infrastructure", "/infra"),
+)
+
+# Retrieval tools equipped from the composer + menu. Incident-package retrieval
+# is always on; these constrain the next answer. Questions never change a gate.
+COMPOSER_TOOLS = (
+    ("owner_blast", "Owner & blast", "Owner, environment, blast radius, reversibility"),
+    ("why_gated", "Why gated", "Gate decision and reasons"),
+    ("rollback", "Rollback plan", "Undo / rollback for this change"),
+)
+_COMPOSER_TOOL_IDS = {row[0] for row in COMPOSER_TOOLS}
+
+_TOOL_ICON = {
+    "chat": '<svg viewBox="0 0 16 16" class="ico"><path d="M2.5 3.2h11v7.2H6.4L3.4 12.8v-2.4H2.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>',
+    "approvals": '<svg viewBox="0 0 16 16" class="ico"><path d="M3 8.4l3 3 7-7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    "infra": '<svg viewBox="0 0 16 16" class="ico"><path d="M8 2.4v3.4M4 13.6v-2.2h8v2.2M8 5.8v5.6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="5.6" y="1" width="4.8" height="2.8" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="2.2" y="12.6" width="3.6" height="2.6" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="10.2" y="12.6" width="3.6" height="2.6" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>',
+}
+
 
 DASH_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --bg0: #e8ebe6;
-  --bg1: #f4f5f1;
-  --bg: #eef0ec;
-  --surface: rgba(255,255,255,0.78);
-  --surface-solid: #fbfbf8;
-  --surface-2: #f3f4f0;
-  --ink: #152028;
-  --ink-soft: #4a5560;
-  --ink-faint: #7a858f;
-  --line: rgba(21,32,40,0.10);
-  --line-strong: rgba(21,32,40,0.18);
-  --border: var(--line);
-  --border-strong: var(--line-strong);
-  --brand: #0f5c57;
-  --brand-soft: #d7ebe8;
-  --accent: #0f5c57;
-  --auto: #1c7a4c; --auto-bg: #e3f3ea; --auto-line: #b7e0c7;
-  --route: #9a6410; --route-bg: #f7edd6; --route-line: #ecd4a3;
-  --escalate: #a93636; --escalate-bg: #f6e3e3; --escalate-line: #eec2c2;
-  --shadow: 0 1px 0 rgba(21,32,40,0.04), 0 18px 40px rgba(21,32,40,0.07);
-  --radius: 14px;
-  --sans: "Sora", ui-sans-serif, system-ui, sans-serif;
-  --display: "Fraunces", Georgia, serif;
-  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  /* neutrals — one ramp, used consistently */
+  --n0: #ffffff;
+  --n1: #fbfbfa;
+  --n2: #f6f6f4;
+  --n3: #eeeeeb;
+  --n4: #e2e2de;
+  --n6: #9a9a94;
+  --n8: #56565230;
+  --ink: #17181a;
+  --ink-2: #52555a;
+  --ink-3: #86898f;
+  --line: #e6e6e2;
+  --line-2: #d8d8d3;
+
+  --accent: #0d5c56;
+  --accent-2: #e6f1ef;
+  --auto: #17714a; --auto-bg: #e8f3ec;
+  --route: #8a5a0f; --route-bg: #f8efdb;
+  --escalate: #a13232; --escalate-bg: #f8e6e6;
+  --info: #2f5d9f; --info-bg: #e8eef8;
+
+  --sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --display: "Newsreader", Georgia, serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+  /* type scale */
+  --t-micro: 10.5px;
+  --t-meta: 11.5px;
+  --t-small: 12.5px;
+  --t-body: 13.5px;
+  --t-read: 15px;
+  --t-h3: 17px;
+  --t-h2: 21px;
+  --t-h1: 30px;
+
+  /* 4px spacing scale */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px;
+
+  --r-sm: 8px; --r-md: 10px; --r-lg: 14px; --r-xl: 18px;
+  --rail: 292px;
+  --ease: cubic-bezier(0.22, 0.75, 0.24, 1);
+  --shadow-1: 0 1px 2px rgba(23,24,26,0.05);
+  --shadow-2: 0 4px 16px rgba(23,24,26,0.07), 0 1px 2px rgba(23,24,26,0.05);
+  --shadow-3: 0 18px 48px rgba(23,24,26,0.11), 0 2px 6px rgba(23,24,26,0.06);
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; min-height: 100%; }
+html, body { margin: 0; height: 100%; }
 body {
   font-family: var(--sans);
+  font-size: var(--t-body);
+  font-feature-settings: "cv11", "ss01";
   color: var(--ink);
-  background:
-    radial-gradient(1200px 600px at 10% -10%, #d9ebe7 0%, transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, #ebe4d6 0%, transparent 50%),
-    linear-gradient(180deg, var(--bg1), var(--bg0));
+  background: var(--n0);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
-a { color: inherit; }
-button, input, select { font: inherit; }
+a { color: inherit; text-decoration: none; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+::selection { background: var(--accent-2); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 
-.app { min-height: 100vh; display: flex; flex-direction: column; }
-
-/* Environment strip */
-.envstrip {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 10px 22px; border-bottom: 1px solid var(--line);
-  background: color-mix(in srgb, var(--surface-solid) 70%, transparent);
-  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  flex-wrap: wrap;
-}
-.envstrip .bits { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
-.envstrip .bit { font-size: 12px; color: var(--ink-faint); }
-.envstrip .bit strong { color: var(--ink); font-weight: 600; }
-.envstrip .live {
-  display: inline-flex; align-items: center; gap: 7px;
-  font-size: 12px; font-weight: 600; color: var(--brand);
-}
-.envstrip .live::before {
-  content: ""; width: 7px; height: 7px; border-radius: 50%;
-  background: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 25%, transparent);
-  animation: pulse 2.4s ease-in-out infinite;
-}
-@keyframes pulse { 50% { opacity: 0.55; } }
-
-/* Header */
-.top {
-  display: flex; align-items: center; justify-content: space-between; gap: 18px;
-  padding: 18px 22px 12px; flex-wrap: wrap;
-}
-.brand-lockup { display: flex; flex-direction: column; gap: 2px; }
-.brand-lockup .word {
-  font-family: var(--display); font-size: 28px; font-weight: 700;
-  letter-spacing: -0.03em; line-height: 1; color: var(--ink);
-}
-.brand-lockup .tag {
-  font-size: 12.5px; color: var(--ink-soft); max-width: 42ch;
-}
-.top nav { display: flex; gap: 6px; flex-wrap: wrap; }
-.top nav a, .top .btn-ghost {
-  text-decoration: none; font-size: 13px; font-weight: 600;
-  padding: 8px 12px; border-radius: 999px; border: 1px solid transparent;
-  color: var(--ink-soft); background: transparent;
-}
-.top nav a:hover, .top .btn-ghost:hover { background: rgba(255,255,255,0.55); color: var(--ink); }
-.top nav a.on {
-  background: var(--surface-solid); color: var(--ink);
-  border-color: var(--line-strong); box-shadow: var(--shadow);
-}
-.actions-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.btn {
-  appearance: none; border: 1px solid var(--line-strong); border-radius: 10px;
-  padding: 9px 14px; background: var(--surface-solid); color: var(--ink);
-  font-weight: 600; font-size: 13px; cursor: pointer; text-decoration: none;
-  display: inline-flex; align-items: center; gap: 6px;
-}
-.btn:hover { border-color: var(--ink-faint); }
-.btn-primary {
-  background: var(--brand); color: #f4fffc; border-color: transparent;
-}
-.btn-primary:hover { filter: brightness(1.05); }
-.btn-secondary { background: transparent; }
-select.profile {
-  border: 1px solid var(--line-strong); border-radius: 10px;
-  padding: 8px 12px; background: var(--surface-solid); color: var(--ink);
-  font-size: 12.5px; font-weight: 500;
-}
-
-/* Body grid */
-.body {
+/* ---------------------------------------------------------------- shell */
+.shell {
+  height: 100vh;
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr) 300px;
-  gap: 14px; padding: 8px 18px 28px; flex: 1;
+  grid-template-columns: var(--rail) minmax(0, 1fr);
+  transition: grid-template-columns 260ms var(--ease);
 }
-@media (max-width: 1100px) {
-  .body { grid-template-columns: 1fr; }
-  .side { order: 3; }
-  .rail { order: 2; }
+html[data-nav="collapsed"] .shell { grid-template-columns: 0px minmax(0, 1fr); }
+
+.rail {
+  background: var(--n2);
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column;
+  min-height: 0; overflow: hidden;
 }
-.panel {
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius); box-shadow: var(--shadow);
-  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
-  padding: 14px;
+.rail-inner {
+  width: var(--rail); min-width: var(--rail);
+  display: flex; flex-direction: column; min-height: 0; height: 100%;
+  opacity: 1; transform: translateX(0);
+  transition: opacity 180ms var(--ease), transform 260ms var(--ease);
 }
-.panel h2 {
-  margin: 0 0 12px; font-size: 11px; letter-spacing: 0.08em;
-  text-transform: uppercase; color: var(--ink-faint); font-weight: 600;
+html[data-nav="collapsed"] .rail-inner { opacity: 0; transform: translateX(-12px); }
+
+.rail-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--s2); padding: var(--s3) var(--s3) var(--s2) var(--s4);
+}
+.wordmark {
+  display: flex; align-items: center;
+  font-family: var(--display); font-size: var(--t-h2); letter-spacing: -0.015em;
+  line-height: 1; font-weight: 500;
+}
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: var(--r-sm);
+  border: 1px solid transparent; background: transparent; color: var(--ink-3);
+  transition: background 140ms var(--ease), color 140ms var(--ease);
+}
+.icon-btn:hover { background: var(--n3); color: var(--ink); }
+.icon-btn svg { width: 16px; height: 16px; }
+
+.rail-actions { padding: 0 var(--s3) var(--s3); }
+.new-btn {
+  display: flex; align-items: center; justify-content: center; gap: var(--s2);
+  width: 100%; border: 1px solid var(--line-2); background: var(--n0);
+  border-radius: var(--r-md); padding: 9px var(--s3);
+  font-weight: 550; font-size: var(--t-small); color: var(--ink);
+  box-shadow: var(--shadow-1);
+  transition: border-color 140ms var(--ease), box-shadow 140ms var(--ease), transform 140ms var(--ease);
+}
+.new-btn:hover { border-color: var(--accent); box-shadow: var(--shadow-2); transform: translateY(-1px); }
+.new-btn svg { width: 14px; height: 14px; }
+
+.rail-label {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: var(--t-micro); font-weight: 600; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--ink-3);
+  padding: var(--s2) var(--s4) var(--s1);
+}
+.rail-label .count { letter-spacing: 0; font-weight: 500; }
+.threads {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: var(--s1) var(--s2) var(--s5);
+  display: flex; flex-direction: column; gap: 1px;
+  scrollbar-width: thin;
+}
+.threads::-webkit-scrollbar { width: 8px; }
+.threads::-webkit-scrollbar-thumb { background: var(--n4); border-radius: 8px; }
+
+.thread-row {
+  display: block;
+  padding: 10px 12px; border-radius: var(--r-md);
+  transition: background 140ms var(--ease);
+  position: relative;
+}
+.thread-row:hover { background: var(--n3); }
+.thread-row.on { background: var(--n0); }
+.thread-row .t, .thread-row .p {
+  display: block; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.thread-row .t {
+  font-size: var(--t-body); font-weight: 500; line-height: 1.35; letter-spacing: -0.005em;
+}
+.thread-row .p {
+  font-size: var(--t-meta); color: var(--ink-3); margin-top: 2px; line-height: 1.4;
 }
 
-/* Agents */
-.agent {
-  padding: 10px 11px; border-radius: 11px; border: 1px solid var(--line);
-  background: var(--surface-solid); margin-bottom: 8px;
-}
-.agent:last-child { margin-bottom: 0; }
-.agent .name { font-size: 13.5px; font-weight: 600; }
-.agent .title { font-size: 11.5px; color: var(--ink-faint); margin-top: 1px; }
-.agent .detail { font-size: 12px; color: var(--ink-soft); margin-top: 6px; }
-.agent .status {
-  display: inline-flex; margin-top: 8px; font-size: 10.5px; font-weight: 700;
-  letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px;
-}
-.status-idle { background: #edf0f2; color: var(--ink-faint); }
-.status-working { background: var(--route-bg); color: var(--route); }
-.status-complete { background: var(--auto-bg); color: var(--auto); }
-.status-blocked { background: var(--escalate-bg); color: var(--escalate); }
+/* ---------------------------------------------------------------- main */
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 
-/* Mission */
-.mission { min-width: 0; }
-.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
-@media (max-width: 720px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
-.tile {
-  background: var(--surface-solid); border: 1px solid var(--line);
-  border-radius: 12px; padding: 12px 13px;
+.topbar {
+  height: 52px; flex: 0 0 52px;
+  display: grid; grid-template-columns: 1fr auto 1fr;
+  align-items: center; gap: var(--s3);
+  padding: 0 var(--s4);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--n0) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
 }
-.tile .n { font-size: 24px; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
-.tile .l { font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; }
-.tile.awaiting .n { color: var(--route); }
-.tile.auto .n { color: var(--auto); }
+.top-left { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
+.reveal { display: none; }
+html[data-nav="collapsed"] .reveal { display: inline-flex; }
+html[data-nav="collapsed"] .top-left .crumb-word { display: inline; }
+.crumb-word {
+  display: none; font-family: var(--display); font-size: var(--t-h3); letter-spacing: -0.01em;
+}
+.crumb {
+  font-size: var(--t-small); color: var(--ink-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.crumb strong { color: var(--ink-2); font-weight: 550; }
 
-.queue-list { display: flex; flex-direction: column; gap: 8px; }
-.qitem {
-  display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center;
-  padding: 12px 13px; border-radius: 12px; border: 1px solid var(--line);
-  background: var(--surface-solid); text-decoration: none; color: inherit;
-  transition: border-color .15s ease, transform .15s ease;
+.segment {
+  display: inline-flex; padding: 3px; gap: 2px;
+  background: var(--n2); border: 1px solid var(--line); border-radius: 999px;
 }
-.qitem:hover { border-color: var(--brand); transform: translateY(-1px); }
-.qitem.on { border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 18%, transparent); }
-.qitem .t { font-weight: 600; font-size: 13.5px; }
-.qitem .m { font-size: 12px; color: var(--ink-faint); margin-top: 2px; font-family: var(--mono); }
+.segment a, .segment button {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: var(--t-small); font-weight: 550; letter-spacing: -0.005em;
+  padding: 6px 13px; border-radius: 999px; color: var(--ink-2);
+  border: 1px solid transparent; background: transparent;
+  transition: background 150ms var(--ease), color 150ms var(--ease), box-shadow 150ms var(--ease);
+}
+.segment a:hover, .segment button:hover { color: var(--ink); }
+.segment a.on, .segment button.on {
+  background: var(--n0); color: var(--ink);
+  box-shadow: var(--shadow-1), 0 0 0 1px var(--line);
+}
+.segment .ico { width: 14px; height: 14px; }
+
+.top-right { display: flex; align-items: center; justify-content: flex-end; gap: var(--s3); }
+select.profile {
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 6px 10px; background: var(--n0); color: var(--ink-2);
+  font-size: var(--t-meta); max-width: 178px;
+  transition: border-color 140ms var(--ease);
+}
+select.profile:hover { border-color: var(--line-2); }
+
+/* ---------------------------------------------------------------- identity */
+.identity { display: inline-flex; align-items: center; gap: var(--s2); min-width: 0; }
+.avatar {
+  width: 30px; height: 30px; border-radius: 9px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: var(--t-micro); font-weight: 650; letter-spacing: 0.02em;
+}
+.avatar-person { background: var(--ink); color: var(--n0); }
+.avatar-agent { background: var(--accent-2); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); }
+.avatar-sensor { background: var(--n3); color: var(--ink-3); }
+.avatar .mark-glyph { width: 17px; height: 17px; }
+.avatar.sm { width: 22px; height: 22px; border-radius: 7px; font-size: 9.5px; }
+.avatar.sm .mark-glyph { width: 13px; height: 13px; }
+
+.byline { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; }
+.byline-row { display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.byline-name { font-size: var(--t-body); font-weight: 600; letter-spacing: -0.008em; }
+.byline-sub { font-size: var(--t-meta); color: var(--ink-3); line-height: 1.35; }
+.byline-meta { font-size: var(--t-micro); color: var(--ink-3); font-family: var(--mono); }
+.byline.stack { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+
+.tag {
+  font-size: 9.5px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 5px; line-height: 1.5;
+}
+.tag-agent { background: var(--accent-2); color: var(--accent); }
+.tag-sensor { background: var(--n3); color: var(--ink-3); }
+.tag-you { background: var(--ink); color: var(--n0); }
+
+/* ---------------------------------------------------------------- thread */
+.thread-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.thread-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--s4);
+  padding: 10px var(--s5);
+  border-bottom: 1px solid var(--line);
+}
+.thread-head-inner { min-width: 0; flex: 1; }
+.thread-head-actions { flex: none; }
+.gate-btn.on { background: var(--n2); border-color: var(--ink-3); }
+.thread-title {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  margin: 4px 0 2px;
+}
+.thread-head h1 {
+  font-family: var(--sans); font-size: 15px; font-weight: 600;
+  letter-spacing: -0.018em; line-height: 1.3; margin: 0;
+}
+.thread-target {
+  font-family: var(--mono); font-size: var(--t-meta); font-weight: 450;
+  color: var(--ink-3);
+}
+.thread-head .sub {
+  display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
+  font-size: var(--t-meta); color: var(--ink-3);
+}
+.thread-head .sub code { font-family: var(--mono); font-size: var(--t-micro); }
+
+.scroll { flex: 1; overflow-y: auto; }
+.scroll-inner { max-width: 780px; margin: 0 auto; padding: var(--s5) var(--s5) var(--s4); }
+
+.msg { padding: 0 0 18px; font-family: var(--sans); }
+.thread-view.has-reply .msg { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .shell, .rail-inner { transition: none; }
+}
+
+.msg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s3); }
+.msg-head .identity { align-items: flex-start; }
+.msg-head .avatar { margin-top: 1px; }
+.msg-head .byline-name { font-size: var(--t-body); font-weight: 600; }
+.msg-head .byline-sub { font-size: var(--t-micro); }
+.msg-body {
+  font-family: var(--sans); font-size: var(--t-read); font-weight: 400;
+  line-height: 1.65; color: var(--ink);
+  padding-left: 38px; margin-top: 2px;
+}
+.msg-body p { margin: 0 0 8px; font-size: inherit; font-weight: inherit; line-height: inherit; color: inherit; }
+.msg-body p:last-child { margin-bottom: 0; }
+.msg-body .quiet { color: var(--ink-2); font-size: inherit; font-weight: 400; line-height: inherit; }
+.msg-body ul { margin: 6px 0 0; padding-left: 18px; }
+.msg-body li { font-size: inherit; font-weight: 400; color: var(--ink-2); line-height: inherit; margin-bottom: 3px; }
+.msg-body code { font-family: var(--mono); font-size: 12.5px; font-weight: 450; background: var(--n2); padding: 1px 5px; border-radius: 5px; }
+
+.msg.mine .msg-body {
+  padding-left: 0; margin-left: 38px;
+  background: var(--n2); border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: var(--s3) var(--s4);
+}
+
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: var(--s2); margin-top: var(--s3); }
+.fact {
+  background: var(--n2); border: 1px solid var(--line);
+  border-radius: var(--r-md); padding: 9px 11px;
+}
+.fact .k {
+  font-size: var(--t-micro); letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 600;
+}
+.fact .v { font-size: var(--t-body); font-weight: 550; margin-top: 3px; line-height: 1.4; }
+
+.thread-body {
+  flex: 1; min-height: 0;
+  display: grid; grid-template-columns: minmax(0, 1fr) 0px;
+  transition: grid-template-columns 240ms var(--ease);
+}
+.thread-view.gate-open .thread-body {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+}
+.gate-drawer {
+  min-height: 0; overflow: hidden;
+  border-left: 1px solid transparent; background: var(--n1);
+}
+.thread-view.gate-open .gate-drawer { border-left-color: var(--line); }
+.gate-drawer-inner {
+  width: 400px; max-width: 100%; height: 100%;
+  overflow-y: auto; padding: var(--s4);
+}
+.gate-drawer-inner h2 {
+  margin: 0 0 var(--s3); font-size: var(--t-meta); font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3);
+}
+
+.composer {
+  border-top: 1px solid var(--line);
+  padding: var(--s4) var(--s5) var(--s4);
+  background: var(--n1);
+}
+.composer-box {
+  max-width: 780px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 4px;
+  border: 1px solid var(--line); border-radius: 28px;
+  padding: 10px 12px 8px; background: var(--n0);
+  box-shadow: var(--shadow-1);
+  transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease);
+}
+.composer-box:focus-within { border-color: var(--line-2); box-shadow: var(--shadow-2); }
+.composer-input { display: flex; align-items: center; min-height: 28px; }
+.composer-input textarea {
+  display: block; width: 100%; border: 0; resize: none; outline: none;
+  background: transparent; min-height: 26px; max-height: 140px;
+  padding: 4px 4px; font-size: var(--t-read); font-weight: 400;
+  line-height: 1.45; overflow-y: auto;
+}
+.composer-input textarea::placeholder {
+  color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.composer-toolbar {
+  display: flex; align-items: center; gap: 8px; min-height: 32px;
+}
+.composer-left {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  min-width: 0; flex: 1;
+}
+.composer-plus-wrap { position: relative; flex: none; }
+.composer-plus {
+  flex: none; width: 28px; height: 28px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line-2); border-radius: 50%;
+  background: transparent; color: var(--ink-2);
+}
+.composer-plus:hover,
+.composer-plus[aria-expanded="true"] { border-color: var(--ink-3); color: var(--ink); background: var(--n1); }
+.composer-plus svg { width: 14px; height: 14px; }
+.composer-menu {
+  position: absolute; left: 0; bottom: calc(100% + 8px);
+  min-width: 248px; padding: 6px; z-index: 40;
+  background: var(--n0); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow-2);
+}
+.composer-menu[hidden] { display: none; }
+.composer-menu button {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  width: 100%; border: 0; background: transparent;
+  padding: 8px 10px; border-radius: 8px; text-align: left;
+}
+.composer-menu button:hover:not(:disabled) { background: var(--n2); }
+.composer-menu button:disabled { opacity: 0.42; }
+.composer-menu-title { font-size: var(--t-small); font-weight: 600; color: var(--ink); }
+.composer-menu-hint { font-size: var(--t-micro); color: var(--ink-3); line-height: 1.35; }
+.composer-pills {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0;
+}
+.composer-pills[hidden] { display: none; }
+.composer-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; padding: 0 4px 0 8px; border-radius: 999px;
+  font-size: var(--t-meta); font-weight: 550; letter-spacing: -0.01em;
+  white-space: nowrap; line-height: 1;
+  background: #eceaf8; color: #4b3d9e;
+}
+.composer-pill.gate,
+.composer-pill[data-pill="why_gated"] { background: var(--n2); color: var(--ink-2); border: 1px solid var(--line); }
+.composer-pill[data-pill="rollback"] { background: var(--accent-2); color: var(--accent); }
+.composer-pill > svg { width: 12px; height: 12px; flex: none; }
+.composer-pill .x {
+  width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; color: inherit; opacity: 0.62;
+}
+.composer-pill .x:hover { opacity: 1; background: rgba(23,24,26,0.07); }
+.composer-pill .x svg { width: 10px; height: 10px; }
+.composer-tools {
+  display: flex; align-items: center; gap: 2px;
+  flex: none; margin-left: auto;
+}
+.composer-model {
+  position: relative; display: inline-flex; align-items: center; color: var(--ink-2);
+}
+.composer-model select {
+  appearance: none; -webkit-appearance: none;
+  border: 0; background: transparent; color: var(--ink-2);
+  font-size: var(--t-meta); font-weight: 550; letter-spacing: -0.01em;
+  padding: 6px 18px 6px 8px; border-radius: 8px; cursor: pointer; max-width: 168px;
+}
+.composer-model select:hover { color: var(--ink); background: var(--n2); }
+.composer-model .chev {
+  position: absolute; right: 4px; top: 50%; width: 12px; height: 12px;
+  transform: translateY(-50%); pointer-events: none; color: var(--ink-3);
+}
+.composer-mic {
+  flex: none; width: 32px; height: 32px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%; background: transparent; color: var(--ink-3);
+}
+.composer-mic:hover { color: var(--ink); background: var(--n2); }
+.composer-mic.on,
+.composer-mic[aria-pressed="true"] { color: var(--accent); background: var(--accent-2); }
+.composer-mic svg { width: 16px; height: 16px; }
+.composer-send {
+  flex: none; width: 32px; height: 32px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%; background: var(--ink); color: var(--n0);
+}
+.composer-send:hover { opacity: 0.9; }
+.composer-send svg { width: 15px; height: 15px; }
+.composer-hint {
+  max-width: 780px; margin: 8px auto 0;
+  display: flex; justify-content: space-between; gap: var(--s3); flex-wrap: wrap;
+  font-size: var(--t-micro); color: var(--ink-3);
+}
+
+/* ---------------------------------------------------------------- pages */
+.page { flex: 1; overflow-y: auto; }
+.page-inner { max-width: 1180px; margin: 0 auto; padding: var(--s5) var(--s5) var(--s7); }
+.page-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: var(--s4); flex-wrap: wrap; margin-bottom: var(--s5);
+}
+.page h1 {
+  font-family: var(--display); font-size: var(--t-h1); font-weight: 400;
+  letter-spacing: -0.02em; margin: 0 0 6px; line-height: 1.1;
+}
+.lede { margin: 0; color: var(--ink-2); font-size: var(--t-read); line-height: 1.55; max-width: 66ch; }
+
+.stats { display: flex; gap: var(--s5); flex-wrap: wrap; margin-bottom: var(--s5); }
+.stat .n {
+  font-size: 26px; font-weight: 600; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+.stat .l { font-size: var(--t-meta); color: var(--ink-3); margin-top: 2px; }
+.stat.route .n { color: var(--route); }
+.stat.auto .n { color: var(--auto); }
+
+.subhead {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--s3); margin: var(--s6) 0 var(--s3);
+  padding-bottom: var(--s2); border-bottom: 1px solid var(--line);
+}
+.subhead:first-of-type { margin-top: 0; }
+.subhead h2 {
+  margin: 0; font-size: var(--t-meta); font-weight: 600;
+  letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3);
+}
+.subhead .note { font-size: var(--t-meta); color: var(--ink-3); }
+
+.cards { display: flex; flex-direction: column; gap: var(--s3); }
+.acard {
+  position: relative;
+  border: 1px solid var(--line); border-radius: var(--r-lg);
+  background: var(--n0);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+  transition: box-shadow 160ms var(--ease);
+}
+.acard::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--tone, var(--line-2));
+  pointer-events: none;
+}
+.acard.tone-escalate { --tone: var(--escalate); --tone-bg: var(--escalate-bg); }
+.acard.tone-route { --tone: var(--route); --tone-bg: var(--route-bg); }
+.acard.tone-auto { --tone: var(--auto); --tone-bg: var(--auto-bg); }
+.acard.tone-info { --tone: var(--info); --tone-bg: var(--info-bg); }
+.acard:hover { box-shadow: var(--shadow-2); }
+.acard .pill, .acard .sev {
+  background: var(--tone-bg);
+  color: var(--tone);
+}
+.acard-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--s4); padding: var(--s4);
+}
+.acard-title { font-size: var(--t-h3); font-weight: 600; letter-spacing: -0.012em; }
+.acard-cmd { font-family: var(--mono); font-size: var(--t-meta); color: var(--ink-3); margin-top: 4px; }
+.acard-meta { display: flex; gap: var(--s5); padding: 0 var(--s4) var(--s4); flex-wrap: wrap; }
+.mini { min-width: 96px; }
+.mini .k {
+  font-size: var(--t-micro); letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 600;
+}
+.mini .v { font-size: var(--t-body); font-weight: 550; margin-top: 2px; }
+.acard-body { border-top: 1px solid var(--line); padding: var(--s4); background: var(--n1); border-radius: 0 0 var(--r-lg) var(--r-lg); }
+
+.tbl-wrap { border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; background: var(--n0); }
+table.tbl { width: 100%; border-collapse: collapse; }
+table.tbl th {
+  text-align: left; font-size: var(--t-micro); font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3);
+  padding: 11px var(--s4); background: var(--n2); border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+table.tbl td { padding: var(--s3) var(--s4); border-bottom: 1px solid var(--line); vertical-align: top; font-size: var(--t-small); }
+table.tbl tr:last-child td { border-bottom: 0; }
+table.tbl tbody tr { transition: background 130ms var(--ease); }
+table.tbl tbody tr:hover { background: var(--n1); }
+table.tbl .strong { font-weight: 600; font-size: var(--t-body); white-space: nowrap; }
+table.tbl td:nth-child(1) { min-width: 150px; }
+table.tbl td:nth-child(4) { min-width: 190px; }
+table.tbl code { font-family: var(--mono); font-size: var(--t-meta); }
+table.tbl .why { color: var(--ink-2); max-width: 30ch; line-height: 1.5; }
+.num { font-variant-numeric: tabular-nums; }
+
+.footnote { margin-top: var(--s3); font-size: var(--t-meta); color: var(--ink-3); display: flex; align-items: center; gap: 6px; }
+.footnote.ok { color: var(--auto); }
+.footnote.bad { color: var(--escalate); }
+
+.empty {
+  padding: var(--s6) var(--s4); text-align: center; color: var(--ink-3);
+  border: 1px dashed var(--line-2); border-radius: var(--r-lg); font-size: var(--t-body);
+  background: var(--n1);
+}
+
 .pill {
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
-  padding: 4px 8px; border-radius: 999px; white-space: nowrap;
+  font-size: 9.5px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 6px; white-space: nowrap; line-height: 1.6;
 }
 .pill-auto { background: var(--auto-bg); color: var(--auto); }
 .pill-route { background: var(--route-bg); color: var(--route); }
 .pill-escalate { background: var(--escalate-bg); color: var(--escalate); }
-.pill-triage { background: #edf0f2; color: var(--ink-faint); }
+.pill-triage { background: var(--info-bg); color: var(--info); }
+.signals { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sev {
+  display: inline-flex; align-items: center;
+  font-size: 9.5px; font-weight: 650; letter-spacing: 0.07em;
+  text-transform: uppercase; font-variant-numeric: tabular-nums;
+  padding: 3px 8px; border-radius: 6px; white-space: nowrap; line-height: 1.6;
+}
+.sev-critical { background: var(--escalate-bg); color: var(--escalate); }
+.sev-high { background: var(--route-bg); color: var(--route); }
+.sev-medium { background: var(--info-bg); color: var(--info); }
+.sev-low { background: var(--auto-bg); color: var(--auto); }
 
-.empty {
-  padding: 28px 18px; text-align: center; color: var(--ink-faint);
-  border: 1px dashed var(--line-strong); border-radius: 12px; font-size: 13.5px;
+.btn {
+  appearance: none; border: 1px solid var(--line-2); border-radius: var(--r-md);
+  padding: 8px 13px; background: var(--n0); color: var(--ink);
+  font-weight: 550; font-size: var(--t-small);
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: border-color 140ms var(--ease), transform 140ms var(--ease), box-shadow 140ms var(--ease);
 }
-
-/* Package */
-.package { display: flex; flex-direction: column; gap: 12px; }
-.pkg-head {
-  display: flex; gap: 14px; align-items: flex-start; justify-content: space-between;
-  flex-wrap: wrap;
-}
-.pkg-head h1 {
-  font-family: var(--display); font-size: 26px; margin: 6px 0 4px;
-  letter-spacing: -0.02em; line-height: 1.15;
-}
-.pkg-meta { font-size: 12.5px; color: var(--ink-faint); font-family: var(--mono); }
-.gauge {
-  width: 72px; height: 72px; border-radius: 50%;
-  display: grid; place-items: center; position: relative;
-  background: conic-gradient(var(--brand) calc(var(--p) * 1%), #dfe5e3 0);
-}
-.gauge::after {
-  content: ""; position: absolute; inset: 7px; border-radius: 50%;
-  background: var(--surface-solid);
-}
-.gauge span { position: relative; z-index: 1; font-weight: 700; font-size: 14px; }
-.gauge small {
-  position: relative; z-index: 1; display: block; font-size: 9px;
-  letter-spacing: 0.06em; color: var(--ink-faint); margin-top: -2px;
-}
-.section {
-  background: var(--surface-solid); border: 1px solid var(--line);
-  border-radius: 12px; padding: 13px 14px;
-}
-.section .label {
-  font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--ink-faint); font-weight: 600; margin-bottom: 8px;
-}
-.section p { margin: 0; font-size: 14px; color: var(--ink-soft); line-height: 1.55; }
-.facts {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
-}
-@media (max-width: 720px) { .facts { grid-template-columns: 1fr; } }
-.fact {
-  background: var(--bg1); border-radius: 10px; padding: 10px 11px;
-}
-.fact .k { font-size: 10.5px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.06em; }
-.fact .v { font-size: 14px; font-weight: 600; margin-top: 3px; }
-.mitre, .timeline, .iocs { display: flex; flex-direction: column; gap: 6px; }
-.chip {
-  display: inline-flex; gap: 8px; align-items: baseline; flex-wrap: wrap;
-  padding: 7px 10px; border-radius: 9px; background: var(--bg1); font-size: 12.5px;
-}
-.chip code { font-family: var(--mono); color: var(--brand); font-weight: 500; }
-.tl { display: grid; grid-template-columns: 150px 1fr; gap: 8px; font-size: 12.5px; }
-.tl .when { font-family: var(--mono); color: var(--ink-faint); }
-.tl .src { color: var(--brand); font-weight: 600; font-size: 11px; }
-.trace-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-@media (max-width: 720px) { .trace-grid { grid-template-columns: 1fr; } }
-.trace pre {
-  margin: 0; padding: 10px; border-radius: 10px; background: #152028; color: #d7e2dc;
-  font-family: var(--mono); font-size: 11px; overflow: auto; max-height: 180px;
-}
-
-/* Overview map */
-.map {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;
-}
-.node {
-  padding: 14px; border-radius: 12px; border: 1px solid var(--line);
-  background: var(--surface-solid);
-}
-.node .sys { font-weight: 650; font-size: 14px; }
-.node .meta { font-size: 12px; color: var(--ink-faint); margin-top: 4px; }
-.node.prod { border-left: 3px solid var(--escalate); }
-.node.staging { border-left: 3px solid var(--route); }
-.node.dev { border-left: 3px solid var(--auto); }
-.node.tier0 .sys::after {
-  content: " tier-0"; font-size: 10px; color: var(--escalate); font-weight: 700;
-}
-
-/* Audit rail */
-.audit-list { display: flex; flex-direction: column; gap: 7px; max-height: 360px; overflow: auto; }
-.audit-row {
-  padding: 8px 9px; border-radius: 9px; background: var(--surface-solid);
-  border: 1px solid var(--line); font-size: 12px;
-}
-.audit-row .k { font-weight: 650; }
-.audit-row .d { color: var(--ink-faint); font-family: var(--mono); font-size: 11px; margin-top: 2px; }
-.chain-ok { color: var(--auto); font-weight: 650; font-size: 12.5px; }
-.chain-bad { color: var(--escalate); font-weight: 650; font-size: 12.5px; }
-
-/* Reuse approval card inside remediation panel */
-.remediation .card { margin: 0; box-shadow: none; max-width: none; }
-.remediation .wrap { max-width: none; padding: 0; }
-.muted { color: var(--ink-faint); }
-.who { font-size: 12.5px; color: var(--ink-faint); }
-.who strong { color: var(--ink); }
-
-/* Minimal approval-card primitives (from assent/approval_card.py) */
-.card {
-  background: var(--surface-solid); border: 1px solid var(--border);
-  border-radius: 14px; padding: 16px; border-left: 3px solid var(--border-strong);
-}
-.card.tone-auto { border-left-color: var(--auto); }
-.card.tone-route { border-left-color: var(--route); }
-.card.tone-escalate { border-left-color: var(--escalate); }
-.card-head .action-type { margin: 8px 0 2px; font-size: 18px; letter-spacing: -0.02em; }
-.card-head .stance { margin: 0; color: var(--ink-soft); font-size: 13px; }
-.verdict { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.badge { font-size: 10.5px; font-weight: 700; padding: 3px 7px; border-radius: 999px; background: var(--bg1); color: var(--ink-faint); }
-.badge-tier0 { background: var(--escalate-bg); color: var(--escalate); }
-.rec-id { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
-.command {
-  margin: 12px 0; padding: 10px 12px; border-radius: 10px; background: #152028; color: #e7f2ee;
-  font-family: var(--mono); font-size: 12.5px;
-}
-.command-label { display: block; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #8aa39a; margin-bottom: 4px; }
-.command .arrow { opacity: 0.6; }
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
-.field { background: var(--bg1); border-radius: 9px; padding: 8px 10px; }
-.field-label { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
-.field-value { font-size: 13px; font-weight: 600; margin-top: 2px; }
-.field-value.mono { font-family: var(--mono); font-weight: 500; font-size: 12px; }
-.tone-auto { color: var(--auto); }
-.tone-route { color: var(--route); }
-.tone-escalate { color: var(--escalate); }
-.block { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
-.block-label { font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; margin-bottom: 4px; }
-.block-body { margin: 0; font-size: 13px; color: var(--ink-soft); }
-.block-body.mono { font-family: var(--mono); font-size: 12px; }
-.audit-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
-.audit-conf { font-size: 12.5px; color: var(--ink-soft); }
-.reasons { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--ink-soft); }
-.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
-.btn-primary { background: var(--brand); color: #f4fffc; border-color: transparent; }
-.btn-primary.tone-auto { background: var(--auto); }
-.btn-primary.tone-route { background: var(--route); }
-.btn-primary.tone-escalate { background: var(--escalate); }
+.btn:hover { border-color: var(--ink-3); transform: translateY(-1px); box-shadow: var(--shadow-1); }
+.btn-primary { background: var(--accent); color: #ffffff; border-color: transparent; }
+.btn-primary:hover { border-color: transparent; }
 .btn-secondary { background: transparent; }
+.actions .btn { min-height: 38px; padding: 8px 16px; white-space: nowrap; color: inherit; }
+.actions .btn-primary { color: #ffffff; }
+
+/* approval card primitives */
+.card {
+  background: var(--n0);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--s4);
+  border-left: 4px solid var(--tone, var(--line-2));
+}
+.card.tone-auto { --tone: var(--auto); --tone-bg: var(--auto-bg); }
+.card.tone-route { --tone: var(--route); --tone-bg: var(--route-bg); }
+.card.tone-escalate { --tone: var(--escalate); --tone-bg: var(--escalate-bg); }
+.card.tone-info { --tone: var(--info); --tone-bg: var(--info-bg); }
+/* Expanded inbox card: inner gated card's left bar matches the outer accent. */
+.acard .card { --tone: inherit; --tone-bg: inherit; }
+.card-head .action-type { margin: var(--s2) 0 2px; font-size: var(--t-h3); letter-spacing: -0.015em; }
+.card-head .stance { margin: 0; color: var(--ink-2); font-size: var(--t-small); line-height: 1.5; }
+.verdict { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.badge { font-size: 9.5px; font-weight: 650; padding: 3px 7px; border-radius: 6px; background: var(--n2); color: var(--ink-3); letter-spacing: 0.06em; text-transform: uppercase; }
+.badge-tier0 { background: var(--escalate-bg); color: var(--escalate); }
+.rec-id { font-family: var(--mono); font-size: var(--t-micro); color: var(--ink-3); }
+.command {
+  margin: var(--s3) 0; padding: 11px var(--s3); border-radius: var(--r-md);
+  background: #16181b; color: #e8f1ee; font-family: var(--mono); font-size: var(--t-small);
+  overflow-x: auto;
+}
+.command-label { display: block; font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8ba49b; margin-bottom: 5px; }
+.command .arrow { opacity: 0.55; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); margin: var(--s3) 0; }
+.field { background: var(--n2); border-radius: var(--r-sm); padding: 8px 10px; }
+.field-label { font-size: var(--t-micro); letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.field-value { font-size: var(--t-body); font-weight: 550; margin-top: 2px; }
+.field-value.mono { font-family: var(--mono); font-weight: 400; font-size: var(--t-small); }
+.field-value.tone-auto, span.tone-auto { color: var(--auto); }
+.field-value.tone-route, span.tone-route { color: var(--route); }
+.field-value.tone-escalate, span.tone-escalate { color: var(--escalate); }
+.block { margin-top: var(--s3); padding-top: var(--s3); border-top: 1px solid var(--line); }
+.block-label { font-size: var(--t-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; margin-bottom: 5px; }
+.block-body { margin: 0; font-size: var(--t-small); color: var(--ink-2); line-height: 1.55; }
+.block-body.mono { font-family: var(--mono); font-size: var(--t-meta); }
+.audit-row { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+.audit-conf { font-size: var(--t-small); color: var(--ink-2); }
+.reasons { margin: 0; padding-left: 17px; font-size: var(--t-small); color: var(--ink-2); line-height: 1.6; }
+.actions { display: flex; gap: var(--s2); flex-wrap: wrap; margin-top: var(--s4); }
+.btn-primary.tone-auto { background: var(--auto); color: #ffffff; }
+.btn-primary.tone-route { background: var(--route); color: #ffffff; }
+.btn-primary.tone-escalate { background: var(--escalate); color: #ffffff; }
+
+details.trace { margin-top: var(--s3); }
+details.trace summary {
+  cursor: pointer; font-size: var(--t-micro); letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ink-3); font-weight: 600;
+  list-style: none; display: flex; align-items: center; gap: 6px;
+}
+details.trace summary::-webkit-details-marker { display: none; }
+details.trace summary::before {
+  content: "▸"; font-size: 10px; transition: transform 160ms var(--ease);
+}
+details.trace[open] summary::before { transform: rotate(90deg); }
+details.trace pre {
+  margin: var(--s2) 0 0; padding: var(--s3); border-radius: var(--r-md);
+  background: var(--n2); border: 1px solid var(--line);
+  font-family: var(--mono); font-size: var(--t-meta); line-height: 1.55;
+  max-height: 260px; overflow: auto; color: var(--ink-2);
+}
+
+/* ---------------------------------------------------------------- infra */
+.infra { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
+.infra-inner { max-width: 1480px; width: 100%; margin: 0 auto; padding: var(--s5) var(--s5) var(--s6); }
+.roster {
+  display: flex; flex-wrap: wrap;
+  border: 1px solid var(--line); border-radius: var(--r-lg);
+  overflow: hidden; background: var(--n0); margin: 0 0 var(--s5);
+}
+.roster-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  flex: 1 1 240px; min-width: 240px;
+  border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  padding: 16px 18px; background: var(--n0);
+}
+.roster-item .byline { flex: 1; min-width: 0; }
+.roster-item .status-dot { width: 7px; height: 7px; border-radius: 50%; margin-left: auto; margin-top: 6px; flex: none; }
+.dot-working { background: var(--route); }
+.dot-blocked { background: var(--escalate); }
+.dot-complete { background: var(--auto); }
+.dot-idle { background: var(--n4); }
+.roster-item .detail {
+  font-size: var(--t-meta); color: var(--ink-3); margin-top: 3px;
+  line-height: 1.4; white-space: normal; overflow: visible; text-overflow: unset;
+}
+
+.fabric {
+  border: 1px solid var(--line); border-radius: var(--r-lg);
+  overflow: hidden; background: var(--n1);
+}
+.topo { width: 100%; height: auto; display: block; background: var(--n1); }
+.topo-zone rect { fill: #fcfcfb; stroke: var(--line); stroke-width: 1; }
+.topo-zone text {
+  font-size: 11px; font-weight: 650; letter-spacing: 0.12em;
+  text-transform: uppercase; fill: #86898f; font-family: var(--sans);
+}
+.topo-link { fill: none; stroke: #d4d4ce; stroke-width: 1.35; }
+.topo-link.hot { stroke: color-mix(in srgb, var(--accent) 32%, #c8c8c2); stroke-width: 1.55; }
+.node { cursor: pointer; }
+.node.muted { cursor: default; }
+.node-plate { fill: #ffffff; stroke: var(--line-2); stroke-width: 1; }
+.node:hover .node-plate { stroke: #b8b8b2; }
+.node.on .node-plate { stroke: var(--ink); stroke-width: 1.35; }
+.node-name {
+  font-size: 13.5px; font-weight: 600; fill: #17181a;
+  font-family: var(--sans); letter-spacing: -0.01em;
+}
+.node-meta { font-size: 11px; fill: #86898f; font-family: var(--sans); }
+.topo-legend text { font-size: 12px; fill: #86898f; font-family: var(--sans); }
+
+.muted { color: var(--ink-3); }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px;
+  border-radius: 6px; background: var(--n2); border: 1px solid var(--line);
+  font-size: var(--t-meta); margin: 2px 4px 2px 0; color: var(--ink-2);
+}
+.chip code { font-family: var(--mono); color: var(--accent); font-size: var(--t-micro); }
+
+/* ---------------------------------------------------------------- folds */
+.fold { margin: 0 0 var(--s5); }
+.fold > summary {
+  list-style: none; cursor: pointer;
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--s3); margin: 0 0 var(--s3);
+  padding-bottom: var(--s2); border-bottom: 1px solid var(--line);
+  user-select: none;
+}
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary h2 {
+  margin: 0; font-size: var(--t-meta); font-weight: 600;
+  letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3);
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.fold > summary h2::before {
+  content: ""; width: 6px; height: 6px; border-right: 1.6px solid var(--ink-3);
+  border-bottom: 1.6px solid var(--ink-3); transform: rotate(-45deg);
+  transition: transform 220ms var(--ease);
+}
+.fold[open] > summary h2::before { transform: rotate(45deg); }
+.fold > summary .note { font-size: var(--t-meta); color: var(--ink-3); }
+.fold-body { overflow: hidden; }
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 0 1fr; }
+  .rail { display: none; }
+  .topbar { grid-template-columns: auto 1fr auto; }
+  .facts { grid-template-columns: 1fr 1fr; }
+}
 """
+
+_NAV_SCRIPT = """
+(function () {
+  var root = document.documentElement;
+  try {
+    if (localStorage.getItem('assent-nav') === 'collapsed') root.dataset.nav = 'collapsed';
+  } catch (e) {}
+  window.assentToggleNav = function () {
+    var next = root.dataset.nav === 'collapsed' ? 'open' : 'collapsed';
+    root.dataset.nav = next;
+    try { localStorage.setItem('assent-nav', next); } catch (e) {}
+  };
+
+  function ready(fn) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
+    else fn();
+  }
+
+  ready(function () {
+    document.querySelectorAll('details.fold[data-fold]').forEach(function (el) {
+      var key = 'assent-fold-' + el.dataset.fold;
+      try {
+        var saved = localStorage.getItem(key);
+        if (saved === 'closed') el.open = false;
+        if (saved === 'open') el.open = true;
+      } catch (e) {}
+      el.addEventListener('toggle', function () {
+        try { localStorage.setItem(key, el.open ? 'open' : 'closed'); } catch (e) {}
+      });
+    });
+
+    document.querySelectorAll('textarea[name="q"]').forEach(function (ta) {
+      var grow = function () {
+        ta.style.height = 'auto';
+        ta.style.height = Math.min(ta.scrollHeight, 140) + 'px';
+      };
+      ta.addEventListener('input', grow);
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          var form = ta.closest('form');
+          if (!form) return;
+          if (typeof form.requestSubmit === 'function') form.requestSubmit();
+          else form.submit();
+        }
+      });
+      grow();
+
+      var mic = ta.closest('form') && ta.closest('form').querySelector('[data-dictate]');
+      if (mic) bindDictate(ta, mic, grow);
+    });
+
+    function bindDictate(ta, btn, grow) {
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        btn.title = 'Speech recognition is not available in this browser';
+        btn.addEventListener('click', function (e) { e.preventDefault(); });
+        return;
+      }
+      var rec = null;
+      var listening = false;
+      var base = '';
+      var setOn = function (on) {
+        listening = on;
+        btn.classList.toggle('on', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      };
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (listening) {
+          if (rec) try { rec.stop(); } catch (err) {}
+          return;
+        }
+        rec = new SR();
+        rec.continuous = true;
+        rec.interimResults = true;
+        rec.lang = document.documentElement.lang || 'en-US';
+        base = ta.value;
+        rec.onresult = function (ev) {
+          var interim = '';
+          var finals = '';
+          for (var i = ev.resultIndex; i < ev.results.length; i++) {
+            var t = ev.results[i][0].transcript;
+            if (ev.results[i].isFinal) finals += t;
+            else interim += t;
+          }
+          if (finals) {
+            base = (base && !/\\s$/.test(base) ? base + ' ' : base) + finals.replace(/^\\s+/, '');
+          }
+          var next = base;
+          if (interim) next = (next && !/\\s$/.test(next) ? next + ' ' : next) + interim.replace(/^\\s+/, '');
+          ta.value = next;
+          grow();
+        };
+        rec.onend = function () { setOn(false); rec = null; };
+        rec.onerror = function () { setOn(false); };
+        try { rec.start(); setOn(true); } catch (err) { setOn(false); }
+      });
+    }
+
+    document.querySelectorAll('form.composer').forEach(function (form) {
+      var plus = form.querySelector('[data-add-context]');
+      var menu = form.querySelector('.composer-menu');
+      var pills = form.querySelector('[data-equipped]');
+      var fields = form.querySelector('[data-tool-fields]');
+      var tpl = form.querySelector('#composer-pill-template');
+      if (!plus || !menu || !pills || !fields) return;
+      var wrap = plus.closest('.composer-plus-wrap') || plus.parentElement;
+
+      function ids() {
+        return Array.prototype.map.call(fields.querySelectorAll('input[name="tools"]'), function (el) {
+          return el.value;
+        });
+      }
+      function sync() {
+        var have = ids();
+        menu.querySelectorAll('[data-equip]').forEach(function (btn) {
+          var on = have.indexOf(btn.getAttribute('data-equip')) !== -1;
+          btn.disabled = on;
+          btn.setAttribute('aria-disabled', on ? 'true' : 'false');
+        });
+        if (have.length) pills.removeAttribute('hidden');
+        else pills.setAttribute('hidden', '');
+        plus.setAttribute('aria-expanded', menu.hasAttribute('hidden') ? 'false' : 'true');
+      }
+      function closeMenu() {
+        menu.setAttribute('hidden', '');
+        plus.setAttribute('aria-expanded', 'false');
+      }
+
+      plus.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (menu.hasAttribute('hidden')) {
+          menu.removeAttribute('hidden');
+          plus.setAttribute('aria-expanded', 'true');
+        } else {
+          closeMenu();
+        }
+      });
+
+      menu.querySelectorAll('[data-equip]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          var id = btn.getAttribute('data-equip');
+          if (!id || ids().indexOf(id) !== -1) { closeMenu(); return; }
+          var label = btn.getAttribute('data-label') || btn.textContent.trim();
+          var node;
+          if (tpl && tpl.content && tpl.content.firstElementChild) {
+            node = tpl.content.firstElementChild.cloneNode(true);
+          } else {
+            node = document.createElement('span');
+            node.className = 'composer-pill';
+            node.innerHTML = '<span data-label></span><button class="x" type="button" data-dismiss-pill aria-label="Remove">×</button>';
+          }
+          node.setAttribute('data-pill', id);
+          var lab = node.querySelector('[data-label]') || node.querySelector('span');
+          if (lab) lab.textContent = label;
+          var rm = node.querySelector('[data-dismiss-pill]');
+          if (rm) rm.setAttribute('aria-label', 'Remove ' + label);
+          pills.appendChild(node);
+          var hid = document.createElement('input');
+          hid.type = 'hidden';
+          hid.name = 'tools';
+          hid.value = id;
+          fields.appendChild(hid);
+          closeMenu();
+          sync();
+        });
+      });
+
+      pills.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-dismiss-pill]');
+        if (!btn) return;
+        e.preventDefault();
+        var pill = btn.closest('[data-pill]');
+        var id = pill ? pill.getAttribute('data-pill') : '';
+        if (pill) pill.remove();
+        Array.prototype.forEach.call(fields.querySelectorAll('input[name="tools"]'), function (el) {
+          if (el.value === id) el.remove();
+        });
+        sync();
+      });
+
+      document.addEventListener('click', function (e) {
+        if (!menu.hasAttribute('hidden') && wrap && !wrap.contains(e.target)) closeMenu();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeMenu();
+      });
+      sync();
+
+      form.querySelectorAll('[data-dismiss-chrome]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          var pill = btn.closest('[data-chrome-pill]');
+          if (pill) pill.remove();
+        });
+      });
+    });
+
+    try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) {}
+    var sc = document.querySelector('.scroll');
+    if (sc && location.hash === '#reply') {
+      sc.scrollTop = sc.scrollHeight;
+      var reply = document.getElementById('reply');
+      if (reply) reply.scrollIntoView({ block: 'nearest' });
+    }
+
+    var tv = document.querySelector('.thread-view');
+    var gateBtn = document.querySelector('[data-gate-toggle]');
+    if (tv && gateBtn) {
+      var setGate = function (open) {
+        tv.classList.toggle('gate-open', open);
+        gateBtn.classList.toggle('on', open);
+        gateBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        try { localStorage.setItem('assent-gate', open ? 'open' : 'closed'); } catch (e) {}
+      };
+      var start = location.hash === '#gate';
+      try {
+        if (!start && localStorage.getItem('assent-gate') === 'open') start = true;
+      } catch (e) {}
+      setGate(start);
+      gateBtn.addEventListener('click', function () {
+        setGate(!tv.classList.contains('gate-open'));
+      });
+    }
+  });
+})();
+"""
+
+_ICON_PANEL = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M6.2 2.8v10.4" stroke="currentColor" stroke-width="1.3"/></svg>'
+_ICON_PLUS = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.4v9.2M3.4 8h9.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+_ICON_MIC = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="1.6" width="4" height="7.2" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.8 7.4a4.2 4.2 0 0 0 8.4 0M8 11.6v2.2M5.6 13.8h4.8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>'
+_ICON_SEND = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 12.6V3.8M4.4 7.4 8 3.8l3.6 3.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+_ICON_CHEVRON = '<svg class="chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.4 6.4 8 10l3.6-3.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+_ICON_X = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.4 4.4l7.2 7.2M11.6 4.4l-7.2 7.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
+_ICON_SKILL = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8 9.3 5.7h4.1l-3.3 2.4 1.3 3.9L8 9.6 4.6 12l1.3-3.9-3.3-2.4h4.1z" fill="currentColor"/></svg>'
+_ICON_GATE_SM = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.6 7V5.2A4.4 4.4 0 0 1 8 2.6a4.4 4.4 0 0 1 4.4 2.6V7M4.2 7h7.6v5.4A1.6 1.6 0 0 1 10.2 14H5.8A1.6 1.6 0 0 1 4.2 12.4z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>'
+
+
+# --------------------------------------------------------------------- helpers
 
 
 def _pill_for(record: ChangeRecord) -> str:
     if record.decision is None or record.state is ChangeState.NEEDS_TRIAGE:
         return '<span class="pill pill-triage">triage</span>'
-    tone = {
-        "auto": "auto",
-        "route_to_owner": "route",
-        "escalate": "escalate",
-    }.get(record.decision.value, "triage")
-    label = {
-        "auto": "auto",
-        "route_to_owner": "route",
-        "escalate": "escalate",
-    }.get(record.decision.value, "triage")
-    return f'<span class="pill pill-{tone}">{label}</span>'
+    key = {"auto": "auto", "route_to_owner": "route", "escalate": "escalate"}.get(
+        record.decision.value, "triage"
+    )
+    label = {"auto": "auto", "route": "needs owner", "escalate": "escalated"}[key] if key != "auto" else "auto"
+    return f'<span class="pill pill-{key}">{label}</span>'
+
+
+def _card_tone(record: ChangeRecord) -> str:
+    """Accent family for an inbox card — severity and gate, not decoration.
+
+    escalate/critical → red, high/route_to_owner → amber, auto/low → green,
+    triage/medium → blue. More severe of severity and gate wins.
+    """
+    sev = (record.signal.severity or "medium").lower()
+    decision = record.decision.value if record.decision is not None else None
+    if record.state is ChangeState.ESCALATED or decision == "escalate" or sev == "critical":
+        return "escalate"
+    if decision == "route_to_owner" or sev == "high":
+        return "route"
+    if decision == "auto" or sev == "low" or record.state is ChangeState.AUTO_EXECUTED:
+        return "auto"
+    return "info"
+
+
+def _sev_chip(record: ChangeRecord) -> str:
+    severity = (record.signal.severity or "medium").lower()
+    if severity not in {"critical", "high", "medium", "low"}:
+        severity = "medium"
+    label = {"critical": "Critical", "high": "High", "medium": "Medium", "low": "Low"}[severity]
+    return f'<span class="sev sev-{severity}">{label}</span>'
+
+
+def _titlecase_action(raw: str) -> str:
+    return raw.replace("_", " ").strip().capitalize()
+
+
+def _alert_action(record: ChangeRecord) -> str:
+    if record.change is not None:
+        return _titlecase_action(record.change.action.type)
+    return _titlecase_action(record.signal.kind)
+
+
+def _alert_target(record: ChangeRecord) -> str:
+    if record.change is not None:
+        return record.change.action.target
+    return record.signal.target
+
+
+def _alert_title(record: ChangeRecord) -> str:
+    return f"{_alert_action(record)} · {_alert_target(record)}"
+
+
+def _alert_preview(record: ChangeRecord) -> str:
+    return record.signal.summary or f"{record.signal.source} · {record.id}"
+
+
+def _assignee_for(record: ChangeRecord):
+    """Which human this change is routed to.
+
+    An escalation is by definition *broadened* past the stack owner, so it lands
+    on the security lead rather than the team that happens to own the target.
+    """
+    if record.change is None or record.state is ChangeState.ESCALATED:
+        return ident.person("you")
+    owner_id = record.change.owner.id
+    for pid, team in ident.TEAM_OF.items():
+        if team == owner_id:
+            return ident.person(pid)
+    for pid, systems in ident.SYSTEMS_OF.items():
+        if record.signal.target in systems:
+            return ident.person(pid)
+    return ident.person("you")
+
+
+def _inbox_for(app: Assent, actor: str, scope: str) -> List[ChangeRecord]:
+    waiting = app.queue()
+    if scope == "team":
+        return waiting
+    me = ident.person(actor)
+    return [r for r in waiting if _assignee_for(r).id == me.id]
+
+
+def _history_for(app: Assent, actor: str, scope: str) -> List[ChangeRecord]:
+    settled = app.settled()
+    if scope == "team":
+        return settled
+    me = ident.person(actor)
+    return [
+        r for r in settled
+        if r.resolved_by == me.id
+        or (me.id in {"you", "alex"} and r.resolved_by in {"assent", "you", "alex"})
+    ]
+
+
+# --------------------------------------------------------------------- chrome
+
+
+def _rail(app: Assent, selected_id: Optional[str], tool: str) -> str:
+    rows = []
+    ordered = sorted(app.records(), key=lambda r: r.created_at, reverse=True)
+    open_count = len(app.queue())
+    for r in ordered:
+        on = " on" if r.id == selected_id else ""
+        if tool == "approvals":
+            href = f"/approvals?c={quote(r.id)}"
+        elif tool == "infra":
+            href = f"/infra?c={quote(r.id)}"
+        else:
+            href = f"/change/{quote(r.id)}"
+        rows.append(
+            f"""<a class="thread-row{on}" href="{href}">
+              <span class="t">{_e(_alert_title(r))}</span>
+              <span class="p">{_e(_alert_preview(r))}</span>
+            </a>"""
+        )
+    body = "".join(rows) or '<div class="empty">No alerts yet.</div>'
+    return f"""
+    <aside class="rail">
+      <div class="rail-inner">
+        <div class="rail-head">
+          <span class="wordmark">Assent</span>
+          <button class="icon-btn" type="button" onclick="assentToggleNav()"
+                  title="Hide alerts" aria-label="Hide alerts">{_ICON_PANEL}</button>
+        </div>
+        <div class="rail-actions">
+          <form method="post" action="/demo">
+            <button class="new-btn" type="submit">{_ICON_PLUS} Simulate alert</button>
+          </form>
+        </div>
+        <div class="rail-label"><span>Alerts</span><span class="count">{open_count} open</span></div>
+        <nav class="threads">{body}</nav>
+      </div>
+    </aside>
+    """
+
+
+def _topbar(app: Assent, tool: str, actor: str, profile: str, crumb: str) -> str:
+    me = ident.person(actor)
+    tools = "".join(
+        f'<a class="{"on" if tool == key else ""}" href="{href}">{_TOOL_ICON[key]}{label}</a>'
+        for key, label, href in TOOLS
+    )
+    return f"""
+    <header class="topbar">
+      <div class="top-left">
+        <button class="icon-btn reveal" type="button" onclick="assentToggleNav()"
+                title="Show alerts" aria-label="Show alerts">{_ICON_PANEL}</button>
+        <span class="crumb-word">Assent</span>
+        <span class="crumb">{crumb}</span>
+      </div>
+      <nav class="segment">{tools}</nav>
+      <div class="top-right">
+        <span class="identity" title="You are acting as {_e(me.name)}">
+          {ident.avatar(me, size="sm")}
+          <span class="byline stack">
+            <span class="byline-row"><span class="byline-name">{_e(me.name)}</span></span>
+            <span class="byline-sub">{_e(me.subtitle)}</span>
+          </span>
+        </span>
+      </div>
+    </header>
+    """
 
 
 def _shell(
     *,
-    body_main: str,
-    body_side: str,
-    body_rail: str,
-    page: str,
+    app: Assent,
+    tool: str,
     actor: str,
     profile: str,
-    env_bits: str,
+    selected_id: Optional[str],
+    workspace: str,
+    crumb: str,
 ) -> str:
-    def nav(href: str, label: str, key: str) -> str:
-        return f'<a href="{href}" class="{"on" if page == key else ""}">{label}</a>'
-
-    profile_opts = "".join(
-        f'<option value="{pid}" {"selected" if pid == profile else ""}>{_e(p["label"])}</option>'
-        for pid, p in PROFILES.items()
-    )
-
     return f"""<!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Assent — control plane</title>
 <style>{DASH_CSS}</style>
+<script>{_NAV_SCRIPT}</script>
 </head>
 <body>
-<div class="app">
-  <div class="envstrip">
-    <div class="bits">{env_bits}</div>
-    <div class="live">Control plane live</div>
-  </div>
-  <header class="top">
-    <div class="brand-lockup">
-      <div class="word">Assent</div>
-      <div class="tag">Nothing acts without assent — earned policy or human owner.</div>
-    </div>
-    <nav>
-      {nav('/', 'Mission', 'mission')}
-      {nav('/overview', 'Overview', 'overview')}
-      {nav('/ledger', 'Ledger', 'ledger')}
-    </nav>
-    <div class="actions-row">
-      <form method="post" action="/profile" style="margin:0">
-        <select class="profile" name="profile" onchange="this.form.submit()" aria-label="Deployment profile">
-          {profile_opts}
-        </select>
-      </form>
-      <form method="post" action="/demo" style="margin:0">
-        <button class="btn btn-primary" type="submit">Run demo scenario</button>
-      </form>
-      <span class="who">acting as <strong>{_e(actor)}</strong></span>
-    </div>
-  </header>
-  <div class="body">
-    <aside class="side">{body_side}</aside>
-    <main class="mission">{body_main}</main>
-    <aside class="rail">{body_rail}</aside>
+<div class="shell">
+  {_rail(app, selected_id, tool)}
+  <div class="main">
+    {_topbar(app, tool, actor, profile, crumb)}
+    {workspace}
   </div>
 </div>
 </body>
@@ -469,66 +1270,18 @@ def _shell(
 """
 
 
-def _env_bits(app: Assent, profile: str) -> str:
-    p = PROFILES.get(profile, PROFILES["cloud"])
-    systems = len(app.inventory.names())
-
-    return f"""
-      <div class="bit">Tenant <strong>{_e(p['tenant'])}</strong></div>
-      <div class="bit">Profile <strong>{_e(p['label'])}</strong></div>
-      <div class="bit">Systems in view <strong>{systems}</strong></div>
-      <div class="bit">{_e(p['hint'])}</div>
-    """
+# --------------------------------------------------------------------- thread
 
 
-def _agents_panel(agents: List[AgentView]) -> str:
-    cards = []
-    for a in agents:
-        cards.append(
-            f"""<div class="agent">
-              <div class="name">{_e(a.name)}</div>
-              <div class="title">{_e(a.title)}</div>
-              <div class="detail">{_e(a.detail)}</div>
-              <span class="status status-{a.status.value}">{a.status.value}</span>
-            </div>"""
-        )
-    return f'<div class="panel"><h2>Agent roster</h2>{"".join(cards)}</div>'
-
-
-def _audit_rail(app: Assent) -> str:
-    ok, message = app.ledger.verify()
-    rows = []
-    for entry in reversed(app.ledger.entries()[-12:]):
-        rows.append(
-            f"""<div class="audit-row">
-              <div class="k">{_e(entry.kind)} · {_e(entry.change_id)}</div>
-              <div class="d">{entry.at.strftime('%H:%M:%S')} · {_e(entry.actor)} · {_e(entry.entry_hash[:8])}…</div>
-            </div>"""
-        )
-    chain = (
-        f'<div class="chain-ok">✓ chain verified</div>'
-        if ok
-        else f'<div class="chain-bad">✕ chain broken — {_e(message)}</div>'
-    )
-    body = "".join(rows) or '<div class="empty">No ledger entries yet.</div>'
-    return f"""<div class="panel"><h2>Audit trail</h2>{chain}
-      <div class="audit-list" style="margin-top:10px">{body}</div>
-      <div style="margin-top:10px"><a class="btn btn-secondary" href="/ledger">Open full ledger</a></div>
-    </div>"""
-
-
-def _remediation_panel(record: Optional[ChangeRecord]) -> str:
-    if record is None:
-        return """<div class="panel remediation"><h2>Remediation</h2>
-          <div class="empty">Select a change to review the gated action.</div></div>"""
+def _card_for(record: ChangeRecord) -> str:
     if record.change is None:
-        return f"""<div class="panel remediation"><h2>Remediation</h2>
-          <div class="empty">No catalogued action — dismiss or write a playbook.
-          <form method="post" action="/deny" style="margin-top:12px">
+        return f"""<div class="empty">No catalogued action for this signal — it needs a
+          playbook before an agent may propose anything.
+          <form method="post" action="/deny" style="margin-top:16px">
             <input type="hidden" name="id" value="{_e(record.id)}">
-            <button class="btn" type="submit">Dismiss</button>
-          </form></div></div>"""
-    card = render_card(
+            <button class="btn" type="submit">Dismiss signal</button>
+          </form></div>"""
+    return render_card(
         record.change,
         PolicyResult(record.decision, record.reasons),
         record.audit,
@@ -536,26 +1289,512 @@ def _remediation_panel(record: Optional[ChangeRecord]) -> str:
         state_label=_STATE_LABEL.get(record.state, record.state.value),
         controls=_STATE_CONTROLS.get(record.state, ""),
     )
-    # Strip outer article styling conflicts by nesting
-    return f'<div class="panel remediation"><h2>Gated remediation</h2>{card}</div>'
 
 
-def _queue_items(records: List[ChangeRecord], selected: Optional[str]) -> str:
-    if not records:
-        return '<div class="empty">Queue clear — nothing waiting on a human.</div>'
-    items = []
-    for r in records:
-        on = " on" if r.id == selected else ""
-        items.append(
-            f"""<a class="qitem{on}" href="/change/{quote(r.id)}">
-              <div>
-                <div class="t">{_e(r.title)}</div>
-                <div class="m">{_e(r.id)} · {_e(r.signal.source)}</div>
-              </div>
-              {_pill_for(r)}
-            </a>"""
+def parse_composer_tools(raw: Optional[Sequence[str]] = None) -> List[str]:
+    """Normalize POST ``tools`` values to known composer tool ids."""
+    found: List[str] = []
+    for item in raw or ():
+        for part in str(item).replace(",", " ").split():
+            key = part.strip()
+            if key in _COMPOSER_TOOL_IDS and key not in found:
+                found.append(key)
+    return found
+
+
+def _tool_answer(pkg, tool_id: str) -> str:
+    if tool_id == "owner_blast":
+        return (
+            f"Authoritative owner is {pkg.owner} in {pkg.environment}. "
+            f"Blast radius: {pkg.blast_radius_narrative}. "
+            f"Reversibility: {pkg.reversibility}. "
+            "Incomplete ownership degrades to a human, never a guess."
         )
-    return f'<div class="queue-list">{"".join(items)}</div>'
+    if tool_id == "why_gated":
+        reasons = "; ".join(pkg.gate_reasons) or "No gate reasons recorded."
+        return f"The engine decided {pkg.decision} because: {reasons} Confidence never authorizes."
+    if tool_id == "rollback":
+        return (
+            f"Rollback plan: {pkg.rollback}. "
+            "Every write has an undo; no undo plan means no autonomy."
+        )
+    return ""
+
+
+def answer_question(
+    record: ChangeRecord,
+    question: str,
+    tools: Optional[Sequence[str]] = None,
+) -> str:
+    """Tiny retrieval over the incident package — no LLM, never a gate."""
+    pkg = build_package(record)
+    equipped = parse_composer_tools(tools)
+    if equipped:
+        return " ".join(filter(None, (_tool_answer(pkg, tid) for tid in equipped)))
+    q = question.lower()
+    if "rollback" in q or "undo" in q:
+        return _tool_answer(pkg, "rollback")
+    if "owner" in q or "who" in q:
+        return (
+            f"Authoritative owner is {pkg.owner} in {pkg.environment}. "
+            "Incomplete ownership degrades to a human, never a guess."
+        )
+    if "blast" in q or "radius" in q:
+        return (
+            f"Blast radius: {pkg.blast_radius_narrative}. "
+            "The gate keys on risk-to-act — blast radius × reversibility × environment × confidence."
+        )
+    if "command" in q or "action" in q:
+        if record.change is None:
+            return "No catalogued command — this signal still needs a playbook."
+        return f"Exact command: {record.change.action.type} → {record.change.action.target}."
+    if "why" in q or "gate" in q or "decid" in q:
+        return _tool_answer(pkg, "why_gated")
+    if "audit" in q:
+        return pkg.technical_summary
+    return (
+        f"{pkg.executive_summary} Ask about the owner, blast radius, rollback, "
+        "the exact command, or why it was gated."
+    )
+
+
+def _message(participant, body: str, *, meta: str = "", mine: bool = False, msgid: str = "") -> str:
+    cls = "msg mine" if mine else "msg"
+    ident_attr = f' id="{_e(msgid)}"' if msgid else ""
+    return f"""
+    <article class="{cls}"{ident_attr}>
+      <div class="msg-head">{ident.identity(participant, meta=meta, is_self=mine)}</div>
+      <div class="msg-body">{body}</div>
+    </article>"""
+
+
+def _thread_messages(record: ChangeRecord, extras: Optional[Sequence[dict]] = None) -> str:
+    pkg = build_package(record)
+    msgs: List[str] = []
+
+    indicators = "".join(
+        f'<span class="chip"><code>{_e(k)}</code> {_e(v)}</span>'
+        for k, v in record.signal.indicators.items()
+    )
+    msgs.append(_message(
+        ident.sensor(record.signal.source),
+        f"<p>{_e(record.signal.summary)}</p>" + (f"<div>{indicators}</div>" if indicators else ""),
+        meta=pkg.attack_timeline[0].timestamp if pkg.attack_timeline else "",
+    ))
+
+    if record.change is None:
+        msgs.append(_message(
+            ident.AGENTS["proposer"],
+            f"<p>No playbook covers <code>{_e(record.signal.kind)}</code>, so I am not "
+            f"proposing an action. Incomplete data degrades to asking a human — never guess and act.</p>",
+        ))
+    else:
+        change = record.change
+        msgs.append(_message(
+            ident.AGENTS["proposer"],
+            f"<p>Proposing <code>{_e(change.action.type)}</code> on "
+            f"<code>{_e(change.action.target)}</code>.</p>"
+            f"<p class=\"quiet\">{_e(change.reasoning)}</p>",
+        ))
+        owner = change.owner
+        msgs.append(_message(
+            ident.AGENTS["ownership"],
+            f"<p>Authoritative owner is <strong>{_e(owner.id)}</strong>, resolved from "
+            f"{_e(owner.source)} with {round(owner.confidence * 100)}% graph confidence. "
+            f"Graph confidence can route, never authorize.</p>",
+        ))
+        if record.audit is not None:
+            verdict = "Dissenting — this escalates." if record.audit.dissent else "Concurring; I can only tighten the gate."
+            msgs.append(_message(
+                ident.AGENTS["auditor"],
+                f"<p>{_e(record.audit.rationale or 'No additional risk factors flagged.')}</p>"
+                f"<p class=\"quiet\">I read {round(record.audit.confidence * 100)}% against the "
+                f"proposer's {round(change.risk_envelope.confidence * 100)}%. {verdict}</p>",
+            ))
+        reasons = "".join(f"<li>{_e(r)}</li>" for r in record.reasons) or "<li>—</li>"
+        msgs.append(_message(
+            ident.AGENTS["policy"],
+            f"<p>Decision: {_pill_for(record)}</p><ul>{reasons}</ul>"
+            f"""<div class="facts">
+              <div class="fact"><div class="k">Owner</div><div class="v">{_e(pkg.owner)}</div></div>
+              <div class="fact"><div class="k">Environment</div><div class="v">{_e(pkg.environment)}</div></div>
+              <div class="fact"><div class="k">Blast radius</div><div class="v">{_e(pkg.blast_radius_narrative)}</div></div>
+              <div class="fact"><div class="k">Reversibility</div><div class="v">{_e(pkg.reversibility)}</div></div>
+              <div class="fact"><div class="k">Business impact</div><div class="v">{_e(pkg.business_impact)}</div></div>
+              <div class="fact"><div class="k">Rollback</div><div class="v">{_e(pkg.rollback)}</div></div>
+            </div>""",
+        ))
+        mitre = "".join(
+            f'<span class="chip"><code>{_e(m.id)}</code> {_e(m.name)}</span>'
+            for m in pkg.mitre_techniques
+        )
+        msgs.append(_message(
+            ident.AGENTS["assent"],
+            f"<p><strong>Executive summary.</strong> {_e(pkg.executive_summary)}</p>"
+            + (f'<p class="quiet">MITRE context — enrichment only, never a gate input:</p><div>{mitre}</div>' if mitre else ""),
+        ))
+
+    extras_list = list(extras or ())
+    for i, extra in enumerate(extras_list):
+        last = i == len(extras_list) - 1
+        if extra.get("role") == "user":
+            msgs.append(_message(
+                ident.person("you"),
+                f"<p>{_e(extra.get('text', ''))}</p>",
+                mine=True,
+                msgid="reply" if last else "",
+            ))
+        else:
+            msgs.append(_message(
+                ident.AGENTS["assent"],
+                f"<p>{_e(extra.get('text', ''))}</p>",
+                msgid="reply" if last else "",
+            ))
+
+    return "".join(msgs)
+
+
+def _gate_panel(record: ChangeRecord) -> str:
+    pkg = build_package(record)
+    traces = pkg.agent_trace
+    trace_json = json.dumps(
+        {
+            "proposer": traces.proposer,
+            "ownership": traces.ownership,
+            "auditor": traces.auditor,
+            "policy": traces.policy,
+        },
+        indent=2,
+    )
+    return f"""
+    <aside class="gate-drawer" id="gate-panel">
+      <div class="gate-drawer-inner">
+        <h2>Gated remediation</h2>
+        {_card_for(record)}
+        <details class="trace"><summary>Agent reasoning trace</summary><pre>{_e(trace_json)}</pre></details>
+      </div>
+    </aside>"""
+
+
+def _composer_menu() -> str:
+    items = []
+    for tid, label, hint in COMPOSER_TOOLS:
+        items.append(
+            f"""<button type="button" role="menuitem" data-equip="{_e(tid)}" data-label="{_e(label)}">
+              <span class="composer-menu-title">{_e(label)}</span>
+              <span class="composer-menu-hint">{_e(hint)}</span>
+            </button>"""
+        )
+    return "".join(items)
+
+
+def _thread_workspace(record: Optional[ChangeRecord], extras: Optional[Sequence[dict]] = None) -> str:
+    if record is None:
+        return """<div class="page"><div class="page-inner">
+          <div class="empty">Select an alert on the left. Each one is a thread —
+          sensor, agents, and the gate decision in order.</div>
+        </div></div>"""
+    assignee = _assignee_for(record)
+    extras = extras or ()
+    replied = " has-reply" if extras else ""
+    return f"""
+    <div class="thread-view{replied}">
+      <div class="thread-head">
+        <div class="thread-head-inner">
+          <div class="signals">{_sev_chip(record)}{_pill_for(record)}</div>
+          <div class="thread-title">
+            <h1>{_e(_alert_action(record))}</h1>
+            <code class="thread-target">{_e(_alert_target(record))}</code>
+          </div>
+          <div class="sub">
+            <code>{_e(record.id)}</code>
+            <span>routed to {_e(assignee.name)} · {_e(assignee.subtitle)}</span>
+          </div>
+        </div>
+        <div class="thread-head-actions">
+          <button class="btn gate-btn" type="button" data-gate-toggle aria-expanded="false" aria-controls="gate-panel">
+            Remediation
+          </button>
+        </div>
+      </div>
+      <div class="thread-body">
+        <div class="scroll"><div class="scroll-inner">{_thread_messages(record, extras)}</div></div>
+        {_gate_panel(record)}
+      </div>
+      <form class="composer" method="post" action="/ask">
+        <input type="hidden" name="id" value="{_e(record.id)}">
+        <div data-tool-fields></div>
+        <div class="composer-box">
+          <div class="composer-input">
+            <textarea name="q" rows="1" placeholder="Ask about this change…"></textarea>
+          </div>
+          <div class="composer-toolbar">
+            <div class="composer-left">
+              <div class="composer-plus-wrap">
+                <button class="composer-plus" type="button" data-add-context title="Add context" aria-label="Add context" aria-haspopup="menu" aria-expanded="false">{_ICON_PLUS}</button>
+                <div class="composer-menu" role="menu" hidden>{_composer_menu()}</div>
+              </div>
+              <div class="composer-pills" data-chrome>
+                <span class="composer-pill skill" data-chrome-pill>
+                  {_ICON_SKILL}<span>Incident package</span>
+                  <button class="x" type="button" data-dismiss-chrome aria-label="Dismiss Incident package">{_ICON_X}</button>
+                </span>
+                <span class="composer-pill gate" data-chrome-pill>
+                  {_ICON_GATE_SM}<span>Policy gate</span>
+                  <button class="x" type="button" data-dismiss-chrome aria-label="Dismiss Policy gate">{_ICON_X}</button>
+                </span>
+              </div>
+              <div class="composer-pills" data-equipped hidden></div>
+            </div>
+            <div class="composer-tools">
+              <label class="composer-model" title="Answers are retrieval over this incident package">
+                <select aria-label="Model">
+                  <option selected>Assent · retrieval</option>
+                </select>
+                {_ICON_CHEVRON}
+              </label>
+              <button class="composer-mic" type="button" data-dictate aria-label="Dictate" aria-pressed="false" title="Dictate">{_ICON_MIC}</button>
+              <button class="composer-send" type="submit" aria-label="Send" title="Send">{_ICON_SEND}</button>
+            </div>
+          </div>
+        </div>
+        <template id="composer-pill-template">
+          <span class="composer-pill" data-pill>
+            <span data-label></span>
+            <button class="x" type="button" data-dismiss-pill aria-label="Remove">{_ICON_X}</button>
+          </span>
+        </template>
+        <div class="composer-hint">
+          <span>Ask about owner, blast, rollback, or why it was gated. Questions never change a gate.</span>
+          <span>⌘ Enter / Ctrl+Enter to send</span>
+        </div>
+      </form>
+    </div>
+    """
+
+
+# --------------------------------------------------------------------- approvals
+
+
+def _approvals_workspace(app: Assent, actor: str, selected_id: Optional[str], scope: str) -> str:
+    me = ident.person(actor)
+    inbox = _inbox_for(app, actor, scope)
+    history = _history_for(app, actor, scope)
+    scope_label = "the team" if scope == "team" else (me.short or me.name)
+
+    you_on = "on" if scope == "you" else ""
+    team_on = "on" if scope == "team" else ""
+
+    cards = []
+    for r in inbox:
+        change = r.change
+        assignee = _assignee_for(r)
+        cmd = f"{change.action.type} → {change.action.target}" if change else "no catalogued action"
+        env = change.risk_envelope.environment.value if change else "—"
+        blast = str(change.risk_envelope.blast_radius) if change else "—"
+        rev = change.risk_envelope.reversibility.value if change else "—"
+        owner = change.owner.id if change else "unknown"
+        expanded = r.id == selected_id or len(inbox) == 1
+        body = f'<div class="acard-body">{_card_for(r)}</div>' if expanded else ""
+        href = f"/approvals?c={quote(r.id)}" if not expanded else f"/change/{quote(r.id)}"
+        cta = "Open thread" if expanded else "Review"
+        cards.append(
+            f"""<div class="acard tone-{_card_tone(r)}">
+              <div class="acard-head">
+                <div>
+                  <div class="acard-title">{_e(_alert_title(r))}</div>
+                  <div class="acard-cmd">{_e(r.id)} · {_e(cmd)}</div>
+                </div>
+                <div class="signals">
+                  {_sev_chip(r)}
+                  {_pill_for(r)}
+                  <a class="btn btn-secondary" href="{href}">{cta}</a>
+                </div>
+              </div>
+              <div class="acard-meta">
+                <div class="mini"><div class="k">Assigned to</div>
+                  <div class="v">{ident.identity(assignee, is_self=assignee.id == me.id)}</div></div>
+                <div class="mini"><div class="k">Owner of record</div><div class="v">{_e(owner)}</div></div>
+                <div class="mini"><div class="k">Environment</div><div class="v">{_e(env)}</div></div>
+                <div class="mini"><div class="k">Blast radius</div><div class="v num">{_e(blast)}</div></div>
+                <div class="mini"><div class="k">Reversibility</div><div class="v">{_e(rev)}</div></div>
+              </div>
+              {body}
+            </div>"""
+        )
+    inbox_html = "".join(cards) or (
+        f'<div class="empty">Nothing is waiting on {_e(scope_label)}. '
+        f'Switch to {"You" if scope == "team" else "Team"} to widen the view.</div>'
+    )
+
+    rows = []
+    for r in history:
+        change = r.change
+        decider = ident.resolver(r.resolved_by or "assent")
+        cmd = change.action.type if change else r.signal.kind
+        target = change.action.target if change else r.signal.target
+        env = change.risk_envelope.environment.value if change else "—"
+        blast = change.risk_envelope.blast_radius if change else "—"
+        rev = change.risk_envelope.reversibility.value if change else "—"
+        owner = change.owner.id if change else "unknown"
+        why = "; ".join(r.reasons[:2]) if r.reasons else "—"
+        when = r.resolved_at.strftime("%b %d · %H:%M:%S") if r.resolved_at else "—"
+        rollback = change.rollback if change is not None else "—"
+        rows.append(
+            f"""<tr>
+              <td><a class="strong" href="/change/{quote(r.id)}">{_e(_titlecase_action(cmd))}</a>
+                  <div class="muted"><code>{_e(r.id)}</code></div></td>
+              <td><code>{_e(target)}</code>
+                  <div class="muted">{_e(env)} · blast {_e(str(blast))} · {_e(rev)}</div></td>
+              <td>{_pill_for(r)}<div class="muted">{_e(_STATE_LABEL.get(r.state, r.state.value))}</div></td>
+              <td>{ident.identity(decider, is_self=decider.id == me.id, compact=True)}
+                  <div class="muted" style="margin-top:4px">{_e(when)}</div></td>
+              <td>{_e(owner)}</td>
+              <td class="why">{_e(why)}</td>
+              <td class="why">{_e(rollback)}</td>
+            </tr>"""
+        )
+    table = "\n".join(rows) or (
+        f'<tr><td colspan="7" class="muted" style="padding:28px; text-align:center">'
+        f'No decisions recorded for {_e(scope_label)} yet.</td></tr>'
+    )
+
+    ok, message = app.ledger.verify()
+    integrity = (
+        f'<div class="footnote ok">Hash chain verified across {len(app.ledger)} entries.</div>'
+        if ok
+        else f'<div class="footnote bad">Hash chain broken — {_e(message)}</div>'
+    )
+
+    auto = app.stats().get("auto_executed", 0)
+    return f"""
+    <div class="page"><div class="page-inner">
+      <div class="page-head">
+        <div>
+          <h1>Approvals</h1>
+          <p class="lede">Every write is routed to a named, authoritative human — never a
+          shared queue. Audit follows the same scope you are viewing.</p>
+        </div>
+        <form class="segment" method="post" action="/scope">
+          <input type="hidden" name="next" value="/approvals">
+          <button class="{you_on}" type="submit" name="scope" value="you">You</button>
+          <button class="{team_on}" type="submit" name="scope" value="team">Team</button>
+        </form>
+      </div>
+
+      <div class="stats">
+        <div class="stat route"><div class="n">{len(inbox)}</div><div class="l">awaiting {_e(scope_label)}</div></div>
+        <div class="stat auto"><div class="n">{auto}</div><div class="l">auto-assented by policy</div></div>
+        <div class="stat"><div class="n">{len(history)}</div><div class="l">decisions on record</div></div>
+      </div>
+
+      <details class="fold" data-fold="inbox" open>
+        <summary><h2>Inbox</h2><span class="note">{len(inbox)} waiting · click to collapse</span></summary>
+        <div class="fold-body"><div class="cards">{inbox_html}</div></div>
+      </details>
+
+      <details class="fold" data-fold="audit" open>
+        <summary><h2>Audit</h2><span class="note">command · envelope · decider · why · rollback</span></summary>
+        <div class="fold-body">
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr>
+                <th>Action</th><th>Target &amp; envelope</th><th>Outcome</th>
+                <th>Decided by</th><th>Owner of record</th><th>Why the engine gated</th><th>Rollback</th>
+              </tr></thead>
+              <tbody>{table}</tbody>
+            </table>
+          </div>
+          {integrity}
+        </div>
+      </details>
+    </div></div>
+    """
+
+
+# --------------------------------------------------------------------- infra
+
+
+def _infra_workspace(app: Assent, selected_id: Optional[str]) -> str:
+    agents = roster_for(app)
+    selected_sys = None
+    if selected_id:
+        try:
+            selected_sys = app.require(selected_id).signal.target
+        except KeyError:
+            selected_sys = None
+
+    items = []
+    for a in agents:
+        p = ident.agent(a.role.value) or ident.AGENTS["assent"]
+        items.append(
+            f"""<div class="roster-item">
+              {ident.avatar(p, size="sm")}
+              <span class="byline stack">
+                <span class="byline-name">{_e(p.name)}</span>
+                <span class="detail">{_e(a.detail)}</span>
+              </span>
+              <span class="status-dot dot-{a.status.value}" title="{_e(a.status.value)}"></span>
+            </div>"""
+        )
+
+    return f"""
+    <div class="infra"><div class="infra-inner">
+      <div class="page-head">
+        <div>
+          <h1>Infrastructure</h1>
+          <p class="lede">A map of systems Assent can act on. A mark on a node is an
+          open change; a dot means an agent is on it. Click through to the thread.</p>
+        </div>
+      </div>
+      <div class="roster">{''.join(items)}</div>
+      {render_topology(app, agents, selected=selected_sys)}
+    </div></div>
+    """
+
+
+# --------------------------------------------------------------------- entry
+
+
+def render_app(
+    app: Assent,
+    *,
+    actor: str,
+    profile: str,
+    tool: str = "chat",
+    selected_id: Optional[str] = None,
+    extras: Optional[Sequence[dict]] = None,
+    scope: str = "you",
+) -> str:
+    selected = None
+    if selected_id:
+        try:
+            selected = app.require(selected_id)
+        except KeyError:
+            selected = None
+    if tool == "chat" and selected is None and app.queue():
+        selected = app.queue()[0]
+        selected_id = selected.id
+
+    if tool == "approvals":
+        workspace = _approvals_workspace(app, actor, selected_id, scope)
+        crumb = "Approvals <strong>·</strong> " + ("Team" if scope == "team" else "You")
+    elif tool == "infra":
+        workspace = _infra_workspace(app, selected_id)
+        crumb = f"Infrastructure <strong>·</strong> {len(app.inventory.names())} systems"
+    else:
+        workspace = _thread_workspace(selected, extras)
+        crumb = "Threads" + (f" <strong>·</strong> {_e(selected.id)}" if selected else "")
+
+    return _shell(
+        app=app,
+        tool=tool,
+        actor=actor,
+        profile=profile,
+        selected_id=selected_id,
+        workspace=workspace,
+        crumb=crumb,
+    )
 
 
 def render_mission(
@@ -565,47 +1804,7 @@ def render_mission(
     profile: str,
     selected_id: Optional[str] = None,
 ) -> str:
-    stats = app.stats()
-    awaiting = len(app.queue())
-    auto = stats.get("auto_executed", 0)
-    executed = auto + stats.get("executed", 0)
-    agents = roster_for(app)
-
-    selected = None
-    if selected_id:
-        try:
-            selected = app.require(selected_id)
-        except KeyError:
-            selected = None
-    if selected is None and app.queue():
-        selected = app.queue()[0]
-        selected_id = selected.id
-
-    main = f"""
-    <div class="tiles">
-      <div class="tile awaiting"><div class="n">{awaiting}</div><div class="l">awaiting assent</div></div>
-      <div class="tile auto"><div class="n">{auto}</div><div class="l">auto-assented</div></div>
-      <div class="tile"><div class="n">{executed}</div><div class="l">changes applied</div></div>
-      <div class="tile"><div class="n">{stats.get('total', 0)}</div><div class="l">signals handled</div></div>
-    </div>
-    <div class="panel" style="margin-bottom:12px">
-      <h2>Waiting on you</h2>
-      {_queue_items(app.queue(), selected_id)}
-    </div>
-    <div class="panel">
-      <h2>Recently settled</h2>
-      {_queue_items(app.settled()[:6], selected_id)}
-    </div>
-    """
-    return _shell(
-        body_main=main,
-        body_side=_agents_panel(agents),
-        body_rail=_remediation_panel(selected) + _audit_rail(app),
-        page="mission",
-        actor=actor,
-        profile=profile,
-        env_bits=_env_bits(app, profile),
-    )
+    return render_app(app, actor=actor, profile=profile, tool="chat", selected_id=selected_id)
 
 
 def render_change(
@@ -614,200 +1813,18 @@ def render_change(
     *,
     actor: str,
     profile: str,
+    extras: Optional[Sequence[dict]] = None,
 ) -> str:
-    pkg = build_package(record)
-    agents = roster_for(app)
-    main = _render_package(pkg) + (
-        f'<div style="margin-top:12px"><a class="btn btn-secondary" href="/">← Back to mission</a></div>'
+    return render_app(
+        app, actor=actor, profile=profile, tool="chat",
+        selected_id=record.id, extras=extras,
     )
-    return _shell(
-        body_main=f'<div class="panel">{main}</div>',
-        body_side=_agents_panel(agents),
-        body_rail=_remediation_panel(record) + _audit_rail(app),
-        page="mission",
-        actor=actor,
-        profile=profile,
-        env_bits=_env_bits(app, profile),
-    )
-
-
-def _render_package(pkg: IncidentPackage) -> str:
-    pct = round(pkg.confidence * 100)
-    mitre = "".join(
-        f'<div class="chip"><code>{_e(m.id)}</code> {_e(m.name)} · {_e(m.tactic)}</div>'
-        for m in pkg.mitre_techniques
-    ) or '<span class="muted">No MITRE mapping for this signal kind.</span>'
-
-    timeline = "".join(
-        f'<div class="tl"><div class="when">{_e(e.timestamp)}</div>'
-        f'<div><span class="src">{_e(e.source)}</span> {_e(e.event)}</div></div>'
-        for e in pkg.attack_timeline
-    )
-
-    ioc_bits = []
-    for bucket, values in pkg.iocs.items():
-        for v in values:
-            ioc_bits.append(f'<div class="chip"><code>{_e(bucket)}</code> {_e(v)}</div>')
-    iocs = "".join(ioc_bits) or '<span class="muted">No indicators attached.</span>'
-
-    factors = "".join(f"<li>{_e(f)}</li>" for f in pkg.contributing_factors)
-    reasons = "".join(f"<li>{_e(r)}</li>" for r in pkg.gate_reasons) or "<li>—</li>"
-
-    traces = pkg.agent_trace
-    trace_html = f"""
-    <div class="trace-grid">
-      <div><div class="label">Proposer</div><pre>{_e(json.dumps(traces.proposer, indent=2))}</pre></div>
-      <div><div class="label">Ownership</div><pre>{_e(json.dumps(traces.ownership, indent=2))}</pre></div>
-      <div><div class="label">Auditor</div><pre>{_e(json.dumps(traces.auditor, indent=2))}</pre></div>
-      <div><div class="label">Policy</div><pre>{_e(json.dumps(traces.policy, indent=2))}</pre></div>
-    </div>
-    """
-
-    decision_pill = {
-        "auto": "pill-auto",
-        "route_to_owner": "pill-route",
-        "escalate": "pill-escalate",
-        "triage": "pill-triage",
-    }.get(pkg.decision, "pill-triage")
-
-    return f"""
-    <div class="package">
-      <div class="pkg-head">
-        <div>
-          <span class="pill {decision_pill}">{_e(pkg.decision)}</span>
-          <span class="pill pill-triage">{_e(pkg.status)}</span>
-          <h1>{_e(pkg.title)}</h1>
-          <div class="pkg-meta">{_e(pkg.record_id)} · threat {_e(pkg.severity)}</div>
-        </div>
-        <div class="gauge" style="--p:{pct}" title="Confidence never authorizes">
-          <div style="text-align:center"><span>{pct}%</span><small>CONF</small></div>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="label">Executive summary — ready for leadership</div>
-        <p>{_e(pkg.executive_summary)}</p>
-      </div>
-
-      <div class="facts">
-        <div class="fact"><div class="k">Owner</div><div class="v">{_e(pkg.owner)}</div></div>
-        <div class="fact"><div class="k">Environment</div><div class="v">{_e(pkg.environment)}</div></div>
-        <div class="fact"><div class="k">Blast radius</div><div class="v">{_e(pkg.blast_radius_narrative)}</div></div>
-        <div class="fact"><div class="k">Reversibility</div><div class="v">{_e(pkg.reversibility)}</div></div>
-        <div class="fact"><div class="k">Business impact</div><div class="v">{_e(pkg.business_impact)}</div></div>
-        <div class="fact"><div class="k">Rollback</div><div class="v">{_e(pkg.rollback)}</div></div>
-      </div>
-
-      <div class="section">
-        <div class="label">MITRE ATT&amp;CK (contextual — not a gate input)</div>
-        <div class="mitre">{mitre}</div>
-      </div>
-
-      <div class="section">
-        <div class="label">Attack / decision timeline</div>
-        <div class="timeline">{timeline}</div>
-      </div>
-
-      <div class="section">
-        <div class="label">Indicators</div>
-        <div class="iocs">{iocs}</div>
-      </div>
-
-      <div class="section">
-        <div class="label">Technical root cause</div>
-        <p>{_e(pkg.technical_summary)}</p>
-        <ul style="margin:8px 0 0; padding-left:18px; color:var(--ink-soft); font-size:13px">{factors}</ul>
-      </div>
-
-      <div class="section">
-        <div class="label">Why the engine decided this</div>
-        <ul style="margin:0; padding-left:18px; color:var(--ink-soft); font-size:13px">{reasons}</ul>
-      </div>
-
-      <div class="section">
-        <div class="label">Agent reasoning trace</div>
-        {trace_html}
-      </div>
-    </div>
-    """
 
 
 def render_overview(app: Assent, *, actor: str, profile: str) -> str:
-    """Infra overview — what the system sees (Phase 1 surface)."""
-    agents = roster_for(app)
-    nodes = []
-    for name in app.inventory.names():
-        sys = app.inventory.get(name)
-        env = sys.environment.value
-        tier = " tier0" if sys.tier0 else ""
-        nodes.append(
-            f"""<div class="node {env}{tier}">
-              <div class="sys">{_e(sys.name)}</div>
-              <div class="meta">{_e(env)} · blast {sys.blast_radius}</div>
-            </div>"""
-        )
-    map_html = "".join(nodes) or '<div class="empty">No systems in inventory yet.</div>'
-    main = f"""
-    <div class="panel">
-      <h2>Infrastructure overview</h2>
-      <p class="muted" style="margin:0 0 12px; font-size:13.5px">
-        What Assent can see right now. Unknown systems resolve to prod + tier-0 so they cannot auto-execute.
-      </p>
-      <div class="map">{map_html}</div>
-    </div>
-    """
-    return _shell(
-        body_main=main,
-        body_side=_agents_panel(agents),
-        body_rail=_audit_rail(app),
-        page="overview",
-        actor=actor,
-        profile=profile,
-        env_bits=_env_bits(app, profile),
-    )
+    return render_app(app, actor=actor, profile=profile, tool="infra")
 
 
 def render_ledger_page(app: Assent, *, actor: str, profile: str) -> str:
-    ok, message = app.ledger.verify()
-    rows = []
-    for entry in reversed(app.ledger.entries()):
-        rows.append(
-            f"""<tr>
-              <td class="mono">{entry.seq}</td>
-              <td class="mono">{entry.at.strftime('%H:%M:%S')}</td>
-              <td>{_e(entry.kind)}</td>
-              <td class="mono">{_e(entry.change_id)}</td>
-              <td>{_e(entry.actor)}</td>
-              <td class="mono muted">{_e(entry.entry_hash[:12])}…</td>
-            </tr>"""
-        )
-    table = "\n".join(rows) or '<tr><td colspan="6" style="text-align:center">No entries.</td></tr>'
-    chain = "✓ chain verified" if ok else f"✕ chain broken — {_e(message)}"
-    main = f"""
-    <div class="panel">
-      <h2>Tamper-evident ledger</h2>
-      <p class="{'chain-ok' if ok else 'chain-bad'}">{chain}</p>
-      <div style="overflow:auto; margin-top:12px">
-        <table style="width:100%; border-collapse:collapse; font-size:13px">
-          <thead><tr>
-            <th style="text-align:left;padding:8px;border-bottom:1px solid var(--line)">#</th>
-            <th style="text-align:left;padding:8px;border-bottom:1px solid var(--line)">Time</th>
-            <th style="text-align:left;padding:8px;border-bottom:1px solid var(--line)">Event</th>
-            <th style="text-align:left;padding:8px;border-bottom:1px solid var(--line)">Change</th>
-            <th style="text-align:left;padding:8px;border-bottom:1px solid var(--line)">Actor</th>
-            <th style="text-align:left;padding:8px;border-bottom:1px solid var(--line)">Hash</th>
-          </tr></thead>
-          <tbody>{table}</tbody>
-        </table>
-      </div>
-    </div>
-    """
-    return _shell(
-        body_main=main,
-        body_side=_agents_panel(roster_for(app)),
-        body_rail=_audit_rail(app),
-        page="ledger",
-        actor=actor,
-        profile=profile,
-        env_bits=_env_bits(app, profile),
-    )
+    """Route alias — the useful surface is Approvals → Audit, not a hash log."""
+    return render_app(app, actor=actor, profile=profile, tool="approvals")

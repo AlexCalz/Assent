@@ -2,9 +2,11 @@
 
     python -m assent.app          # then open http://127.0.0.1:8000
 
-Serves the Trident-inspired dashboard over HTTP with working controls: approve,
-deny, undo, demo inject, and dual deploy profiles all drive the real ``Assent``
-runtime. Standard library only.
+Serves a ChatGPT-style control plane over HTTP: alerts as conversation
+headers, tools (Threads / Approvals / Infrastructure) in the top bar, a You /
+Team scope control on Approvals, and a labeled infrastructure canvas with
+agents on the nodes they are working. Approve, deny, undo, and demo inject
+all drive the real ``Assent`` runtime. Standard library only.
 """
 
 from __future__ import annotations
@@ -17,7 +19,11 @@ from urllib.parse import parse_qs, urlparse
 
 from assent.change import Environment
 from assent.dashboard import (
+    PEOPLE,
     PROFILES,
+    answer_question,
+    parse_composer_tools,
+    render_app,
     render_change,
     render_ledger_page,
     render_mission,
@@ -54,19 +60,24 @@ def demo_app(now: Optional[datetime] = None) -> Assent:
     inventory.add(SystemRecord("analytics-worker", Environment.PROD, dependents=2))
     inventory.add(SystemRecord("auth-service", Environment.PROD, tier0=True, dependents=6))
     inventory.add(SystemRecord("payments-latency", Environment.PROD, dependents=3))
+    inventory.add(SystemRecord("payments-staging-api", Environment.STAGING, dependents=1))
 
     graph = OwnershipGraph()
     graph.add(OwnershipClaim("staging-edge-fw", "team-netsec", Source.CODE, now))
     graph.add(OwnershipClaim("staging-edge-fw", "team-netsec", Source.OPS, now))
     graph.add(OwnershipClaim("payments-api", "team-payments", Source.CODE, now))
+    graph.add(OwnershipClaim("payments-staging-api", "team-payments", Source.CODE, now))
+    graph.add(OwnershipClaim("payments-staging-api", "team-payments", Source.OPS, now))
     graph.add(OwnershipClaim("laptop-4471", "team-endpoint", Source.OPS, now))
     graph.add(OwnershipClaim("analytics-worker", "team-data", Source.CLOUD, now))
+    graph.add(OwnershipClaim("analytics-worker", "team-data", Source.OPS, now))
     graph.add(OwnershipClaim("auth-service", "team-identity", Source.CODE, now))
     graph.add(OwnershipClaim("auth-service", "team-identity", Source.OPS, now))
     # dev-sandbox-07 deliberately has no owner on file.
 
     app = Assent(inventory=inventory, graph=graph)
     _seed_baseline(app, now)
+    _seed_team_history(app, now)
     return app
 
 
@@ -83,6 +94,10 @@ def _seed_baseline(app: Assent, now: datetime) -> None:
                       summary="Periodic beaconing to an unclassified host.",
                       indicators={"interval_s": "60", "ip": "203.0.113.77"}, source="edr",
                       severity="high"), now=now)
+    app.submit(Signal("leaked_credential", "payments-staging-api",
+                      summary="Staging payments key committed to a public gist.",
+                      indicators={"key_id": "AKIA…3F1"}, source="secret-scanner",
+                      severity="high"), now=now)
     app.submit(Signal("overprivileged_role", "analytics-worker",
                       summary="Role grants org-wide write access.",
                       indicators={"role": "analytics-writer"}, source="cspm",
@@ -91,6 +106,27 @@ def _seed_baseline(app: Assent, now: datetime) -> None:
                       summary="Shadow-copy deletion observed; no playbook exists.",
                       indicators={"process": "vssadmin.exe"}, source="edr",
                       severity="critical"), now=now)
+
+
+def _seed_team_history(app: Assent, now: datetime) -> None:
+    """Settled decisions from named owners so the team audit isn't empty on first run."""
+    seeds = (
+        ("jordan", Signal(
+            "overprivileged_role", "payments-latency",
+            summary="Role on the payments latency probe granted org-wide write.",
+            indicators={"role": "latency-writer"}, source="cspm", severity="medium",
+        )),
+        ("priya", Signal(
+            "compromised_session", "auth-service",
+            summary="Session token replayed from an unrecognized ASN.",
+            indicators={"user": "svc-checkout", "asn": "AS20473"},
+            source="identity-monitor", severity="high",
+        )),
+    )
+    for who, signal in seeds:
+        record = app.submit(signal, now=now)
+        if record.state.open and record.change is not None:
+            app.approve(record.id, actor=who, now=now)
 
 
 def inject_demo_scenario(app: Assent, now: Optional[datetime] = None) -> None:
@@ -119,10 +155,20 @@ def inject_demo_scenario(app: Assent, now: Optional[datetime] = None) -> None:
 # --------------------------------------------------------------------- server
 
 
+def _safe_next(form: dict, default: str = "/") -> str:
+    """Same-origin redirect target from a form post."""
+    candidate = (form.get("next") or [default])[0]
+    if not candidate.startswith("/") or candidate.startswith("//"):
+        return default
+    return candidate
+
+
 class _Handler(BaseHTTPRequestHandler):
     app: Assent
     actor: str
     profile: str = "cloud"
+    scope: str = "you"
+    chats: dict
 
     def log_message(self, fmt, *args):  # quieter console
         pass
@@ -141,6 +187,12 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
+    def _selected(self) -> Optional[str]:
+        return (parse_qs(urlparse(self.path).query).get("c") or [None])[0]
+
+    def _extras(self, change_id: str):
+        return (self.chats or {}).get(change_id) or []
+
     def _not_found(self) -> None:
         self._send(
             render_mission(self.app, actor=self.actor, profile=self.profile),
@@ -149,12 +201,22 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = urlparse(self.path).path
+        selected = self._selected()
         if path == "/":
-            self._send(render_mission(self.app, actor=self.actor, profile=self.profile))
-        elif path == "/overview":
-            self._send(render_overview(self.app, actor=self.actor, profile=self.profile))
-        elif path == "/ledger":
-            self._send(render_ledger_page(self.app, actor=self.actor, profile=self.profile))
+            self._send(render_app(
+                self.app, actor=self.actor, profile=self.profile, tool="chat",
+                selected_id=selected,
+            ))
+        elif path in {"/approvals", "/ledger"}:
+            self._send(render_app(
+                self.app, actor=self.actor, profile=self.profile, tool="approvals",
+                selected_id=selected, scope=self.scope,
+            ))
+        elif path in {"/infra", "/overview"}:
+            self._send(render_app(
+                self.app, actor=self.actor, profile=self.profile, tool="infra",
+                selected_id=selected,
+            ))
         elif path.startswith("/change/"):
             change_id = path[len("/change/"):]
             try:
@@ -164,6 +226,7 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             self._send(render_change(
                 self.app, record, actor=self.actor, profile=self.profile,
+                extras=self._extras(change_id),
             ))
         else:
             self._send(
@@ -184,7 +247,7 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             if path == "/deny":
                 self.app.deny(change_id, actor=self.actor)
-                self._redirect("/")
+                self._redirect("/approvals")
                 return
             if path == "/rollback":
                 self.app.rollback(change_id, actor=self.actor)
@@ -199,6 +262,32 @@ class _Handler(BaseHTTPRequestHandler):
                 if chosen in PROFILES:
                     type(self).profile = chosen
                 self._redirect("/")
+                return
+            if path == "/actor":
+                chosen = (form.get("actor") or ["you"])[0]
+                if chosen in PEOPLE:
+                    type(self).actor = chosen
+                self._redirect(_safe_next(form))
+                return
+            if path == "/scope":
+                chosen = (form.get("scope") or ["you"])[0]
+                if chosen in {"you", "team"}:
+                    type(self).scope = chosen
+                self._redirect(_safe_next(form, default="/approvals"))
+                return
+            if path == "/ask":
+                question = (form.get("q") or [""])[0].strip()
+                record = self.app.require(change_id)
+                if question:
+                    chats = type(self).chats
+                    if chats is None:
+                        chats = {}
+                        type(self).chats = chats
+                    thread = chats.setdefault(change_id, [])
+                    tools = parse_composer_tools(form.get("tools") or [])
+                    thread.append({"role": "user", "text": question})
+                    thread.append({"role": "assistant", "text": answer_question(record, question, tools=tools)})
+                self._redirect(f"/change/{change_id}#reply")
                 return
             self._not_found()
             return
@@ -217,7 +306,7 @@ def serve(
     handler = type(
         "Handler",
         (_Handler,),
-        {"app": app, "actor": actor, "profile": profile},
+        {"app": app, "actor": actor, "profile": profile, "scope": "you", "chats": {}},
     )
     server = ThreadingHTTPServer((host, port), handler)
     print(f"Assent running at http://{host}:{port}  (acting as {actor}, profile={profile})")

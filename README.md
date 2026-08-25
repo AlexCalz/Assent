@@ -17,13 +17,13 @@ python -m assent.app        # then open http://127.0.0.1:8000
 
 Mission control with:
 
-- **Agent roster** — proposer, ownership resolver, independent auditor, policy engine
-- **Incident packages** — executive summary, MITRE context, timeline, IOCs, agent traces
-- **Gated remediation** — Assent's approval card (risk envelope + owner + rollback)
-- **Overview** — inventory map (`/overview`)
-- **Tamper-evident ledger** — `/ledger`
-- **Demo inject** — one-click multi-signal scenario
-- **Dual profiles** — Cloud Personal/Startup or Private Tenant/Agency
+- **Alerts as chats** — each signal is a conversation in the left sidebar (collapsible)
+- **Top tools** — Threads, Approvals, Infrastructure
+- **You / Team** — Approvals-only scope control (drag or click)
+- **Approvals + Audit** — collapsible inbox and audit, thick importance borders
+- **Infrastructure** — labeled device plates in environment zones, agents pinned on live nodes
+- **Gated remediation** — Assent's approval card still drives the real engine
+- **Demo inject** — simulate an alert from the sidebar
 
 Surfaces inspired by TRIDENT-AI's ops IA; every gate decision still comes from Assent's
 deterministic engine (confidence never authorizes). Standard library only.
@@ -45,8 +45,10 @@ deterministic engine (confidence never authorizes). Standard library only.
 | Path | Purpose |
 |---|---|
 | [assent/runtime.py](assent/runtime.py) | Orchestrator — signal → propose → owner → audit → gate → act/queue |
-| [assent/app.py](assent/app.py) | HTTP entry — demo world, demo inject, profile switcher |
-| [assent/dashboard.py](assent/dashboard.py) | Mission control UI (Trident IA, Assent brand) |
+| [assent/app.py](assent/app.py) | HTTP entry — demo world, demo inject |
+| [assent/dashboard.py](assent/dashboard.py) | Desktop shell (threads, approvals, infrastructure) |
+| [assent/identity.py](assent/identity.py) | Agent mark vs human job title |
+| [assent/topology.py](assent/topology.py) | Labeled infrastructure canvas |
 | [assent/package.py](assent/package.py) | Incident package projection over a gated `Change` |
 | [assent/agents.py](assent/agents.py) | Live agent roster derived from runtime state |
 | [assent/policy.py](assent/policy.py) | Deterministic `PolicyEngine` |
@@ -61,5 +63,5 @@ python -m assent.app             # control plane
 python examples/demo.py          # watch the engine gate changes
 ```
 
-Status: **working prototype** with Trident-inspired mission control on top of the
-deterministic gating core. LLM diagnosis and real enforcement adapters remain next.
+Status: **working prototype** — ChatGPT-style shell on top of the deterministic
+gating core. LLM diagnosis and real enforcement adapters remain next.

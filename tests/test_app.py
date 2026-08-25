@@ -64,14 +64,15 @@ def test_settled_items_offer_undo_not_approval(app):
 def test_ledger_page_shows_chain_status(app):
     page = render_ledger(app, "alex")
     assert "chain verified" in page
-    assert "proposed" in page and "decided" in page
+    assert "Audit" in page
+    assert "Rollback" in page
 
 
 # ------------------------------------------------------------------ http flow
 
 @pytest.fixture
 def server(app):
-    handler = type("H", (_Handler,), {"app": app, "actor": "alex", "profile": "cloud"})
+    handler = type("H", (_Handler,), {"app": app, "actor": "alex", "profile": "cloud", "chats": {}})
     srv = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     time.sleep(0.05)
@@ -89,6 +90,8 @@ def test_pages_serve(server):
     base, _ = server
     assert urllib.request.urlopen(base + "/").status == 200
     assert urllib.request.urlopen(base + "/ledger").status == 200
+    assert urllib.request.urlopen(base + "/approvals").status == 200
+    assert urllib.request.urlopen(base + "/infra").status == 200
 
 
 def test_unknown_path_404s(server):

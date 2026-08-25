@@ -115,9 +115,9 @@ def _controls(kind: str, record_id: str, verdict: "_Verdict") -> str:
     if kind == "decide":
         return f"""<footer class="actions">
           <form method="post" action="/approve"><input type="hidden" name="id" value="{rid}">
-            <button class="btn btn-primary tone-{verdict.tone}" type="submit">Approve &amp; execute</button></form>
+            <button class="btn btn-primary tone-{verdict.tone}" type="submit">{_e(verdict.primary)}</button></form>
           <form method="post" action="/deny"><input type="hidden" name="id" value="{rid}">
-            <button class="btn btn-secondary" type="submit">Deny</button></form>
+            <button class="btn btn-secondary" type="submit">{_e(verdict.secondary)}</button></form>
         </footer>"""
     if kind == "undo":
         return f"""<footer class="actions">
