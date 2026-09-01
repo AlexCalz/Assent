@@ -1,0 +1,645 @@
+<title>Assent — How It Works</title>
+<style>
+  :root {
+    --bg: #eef0f5;
+    --surface: #ffffff;
+    --surface-2: #f4f6fa;
+    --border: #d8dde7;
+    --border-strong: #c1c8d6;
+    --ink: #161922;
+    --ink-soft: #4d5665;
+    --ink-faint: #828b9c;
+    --accent: #4f5bd5;
+    --accent-soft: #e8eafc;
+    --auto: #1c7a4c;     --auto-bg: #e3f4ea;     --auto-line: #b5dfc5;
+    --route: #a8680a;    --route-bg: #fbeed6;    --route-line: #ecd4a3;
+    --escalate: #bd3b3b; --escalate-bg: #f8e2e2; --escalate-line: #eec2c2;
+    --shadow: 0 1px 2px rgba(18,22,32,.05), 0 10px 30px rgba(18,22,32,.06);
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d0f15; --surface: #151821; --surface-2: #1c202a;
+      --border: #282d38; --border-strong: #39404f;
+      --ink: #edf0f6; --ink-soft: #a5adbe; --ink-faint: #6a7387;
+      --accent: #8b93f0; --accent-soft: #1d1f33;
+      --auto: #57c98a;     --auto-bg: #13271d;     --auto-line: #23503a;
+      --route: #e0a94e;    --route-bg: #29200f;    --route-line: #5a4523;
+      --escalate: #ea7d7d; --escalate-bg: #2a1618; --escalate-line: #5a2e30;
+      --shadow: 0 1px 2px rgba(0,0,0,.45), 0 12px 34px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d0f15; --surface: #151821; --surface-2: #1c202a;
+    --border: #282d38; --border-strong: #39404f;
+    --ink: #edf0f6; --ink-soft: #a5adbe; --ink-faint: #6a7387;
+    --accent: #8b93f0; --accent-soft: #1d1f33;
+    --auto: #57c98a;     --auto-bg: #13271d;     --auto-line: #23503a;
+    --route: #e0a94e;    --route-bg: #29200f;    --route-line: #5a4523;
+    --escalate: #ea7d7d; --escalate-bg: #2a1618; --escalate-line: #5a2e30;
+    --shadow: 0 1px 2px rgba(0,0,0,.45), 0 12px 34px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); line-height: 1.62; -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 820px; margin: 0 auto; padding: 52px 22px 90px; }
+
+  /* ---- masthead ---- */
+  .masthead { border-bottom: 1px solid var(--border-strong); padding-bottom: 26px; margin-bottom: 40px; }
+  .brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 700; font-size: 15px; letter-spacing: -.01em; }
+  .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+  h1 { font-size: 38px; line-height: 1.1; letter-spacing: -.03em; margin: 18px 0 10px; text-wrap: balance; }
+  .standfirst { font-size: 18px; color: var(--ink-soft); margin: 0; max-width: 62ch; }
+  .meta { margin-top: 18px; font-size: 13px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+  /* ---- contents ---- */
+  .toc { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 22px; margin-bottom: 44px; box-shadow: var(--shadow); }
+  .toc h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); margin: 0 0 10px; }
+  .toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+  .toc li { font-size: 14px; margin: 4px 0; break-inside: avoid; }
+  .toc a { color: var(--ink-soft); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  /* ---- sections ---- */
+  section { margin-bottom: 52px; }
+  h2.sec { font-size: 25px; letter-spacing: -.02em; margin: 0 0 6px; text-wrap: balance; display: flex; gap: 12px; align-items: baseline; }
+  h2.sec .num { font-family: var(--mono); font-size: 14px; color: var(--accent); font-weight: 600; flex: none; }
+  .dek { color: var(--ink-soft); font-size: 16px; margin: 0 0 20px; max-width: 64ch; }
+  h3 { font-size: 16.5px; letter-spacing: -.01em; margin: 26px 0 8px; }
+  p { margin: 0 0 14px; max-width: 66ch; }
+  code { font-family: var(--mono); font-size: .89em; background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; }
+  strong { font-weight: 650; }
+
+  /* ---- callouts ---- */
+  .rule { background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border)); border-radius: 12px; padding: 20px 24px; margin: 22px 0; }
+  .rule .label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); font-weight: 700; margin-bottom: 7px; }
+  .rule p { margin: 0; font-size: 17px; }
+  .note { border-left: 3px solid var(--border-strong); padding: 2px 0 2px 16px; margin: 20px 0; color: var(--ink-soft); font-size: 15px; }
+  .note p { margin: 0; }
+
+  /* ---- tables ---- */
+  .tw { overflow-x: auto; margin: 18px 0; background: var(--surface); border: 1px solid var(--border); border-radius: 11px; box-shadow: var(--shadow); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 700; padding: 11px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.m, th.m { font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .t-auto { color: var(--auto); font-weight: 650; }
+  .t-route { color: var(--route); font-weight: 650; }
+  .t-esc { color: var(--escalate); font-weight: 650; }
+
+  .pill { display: inline-block; font-size: 11.5px; font-weight: 650; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .p-auto { color: var(--auto); background: var(--auto-bg); border: 1px solid var(--auto-line); }
+  .p-route { color: var(--route); background: var(--route-bg); border: 1px solid var(--route-line); }
+  .p-esc { color: var(--escalate); background: var(--escalate-bg); border: 1px solid var(--escalate-line); }
+  .p-det { color: var(--ink-soft); background: var(--surface-2); border: 1px solid var(--border); }
+  .p-llm { color: var(--accent); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); }
+
+  /* ---- formula ---- */
+  .formula { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 15px 18px; margin: 16px 0; font-family: var(--mono); font-size: 14px; overflow-x: auto; box-shadow: var(--shadow); }
+  .formula .cmt { color: var(--ink-faint); }
+
+  /* ---- figures ---- */
+  figure { margin: 26px 0; }
+  figure svg { display: block; width: 100%; max-width: 100%; height: auto; }
+  figcaption { font-size: 13.5px; color: var(--ink-faint); margin-top: 12px; text-align: center; max-width: 62ch; margin-left: auto; margin-right: auto; }
+  .figbox { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px 20px; box-shadow: var(--shadow); overflow-x: auto; }
+
+  /* ---- worked example ---- */
+  .calc { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; overflow: hidden; margin: 18px 0; box-shadow: var(--shadow); }
+  .calc-head { padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface-2); font-size: 13.5px; }
+  .calc-head .m { font-family: var(--mono); font-weight: 650; }
+  .calc table { font-size: 13.5px; }
+
+  footer.end { border-top: 1px solid var(--border-strong); padding-top: 22px; margin-top: 60px; color: var(--ink-faint); font-size: 13px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+
+  @media (max-width: 620px) {
+    h1 { font-size: 30px; }
+    .toc ol { columns: 1; }
+    .page { padding: 36px 18px 60px; }
+  }
+  @media print {
+    body { background: #fff; }
+    .page { max-width: none; padding: 0 0 20px; }
+    section { break-inside: auto; page-break-inside: auto; }
+    h2.sec { break-after: avoid; page-break-after: avoid; }
+    figure, .calc, .rule, .tw { break-inside: avoid; page-break-inside: avoid; }
+    .toc { break-after: page; page-break-after: always; }
+    a { text-decoration: none; color: inherit; }
+  }
+</style>
+
+<main class="page">
+
+  <header class="masthead">
+    <div class="brand"><span class="dot"></span> Assent</div>
+    <h1>How Assent decides</h1>
+    <p class="standfirst">A reference for the machinery underneath the product: the pipeline a
+      detection travels, every number the system scores, and exactly where a human gets pulled in.
+      All figures here are computed from the running code, not illustrative.</p>
+    <div class="meta">Technical reference · v0.1 prototype · 11 August 2026</div>
+  </header>
+
+  <nav class="toc">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#job">The one decision</a></li>
+      <li><a href="#invariant">The invariant</a></li>
+      <li><a href="#pipeline">The pipeline</a></li>
+      <li><a href="#envelope">The risk envelope</a></li>
+      <li><a href="#gate">Scoring the gate</a></li>
+      <li><a href="#ownership">Scoring ownership</a></li>
+      <li><a href="#audit">Scoring the second opinion</a></li>
+      <li><a href="#missing">When data is missing</a></li>
+      <li><a href="#worked">Five worked examples</a></li>
+      <li><a href="#ledger">The audit ledger</a></li>
+      <li><a href="#scope">Real vs. stand-in</a></li>
+    </ol>
+  </nav>
+
+  <!-- 1 -->
+  <section id="job">
+    <h2 class="sec"><span class="num">01</span> The one decision</h2>
+    <p class="dek">Everything in the system exists to answer a single question, over and over.</p>
+    <p>When an AI agent proposes to change something on real infrastructure, Assent decides one thing:</p>
+    <div class="rule">
+      <div class="label">The question</div>
+      <p>Is this action safe enough to run <strong>by itself</strong> — and if not, <strong>who</strong>
+        specifically has to say yes?</p>
+    </div>
+    <p>There are exactly three answers, and every path through the system lands on one of them:</p>
+    <div class="tw"><table>
+      <thead><tr><th>Outcome</th><th>Meaning</th><th>Who acts</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill p-auto">auto</span></td>
+          <td>The measured risk of taking this action is low enough that it runs immediately</td>
+          <td>Nobody — logged and reversible</td></tr>
+        <tr><td><span class="pill p-route">route to owner</span></td>
+          <td>Needs a human, and we know with confidence who owns the affected system</td>
+          <td>That owner</td></tr>
+        <tr><td><span class="pill p-esc">escalate</span></td>
+          <td>Needs a human, and either no confident owner exists or a safety rule tripped</td>
+          <td>Broadened — a wider group</td></tr>
+      </tbody>
+    </table></div>
+    <p>The critical framing: Assent scores <strong>risk-to-act</strong>, not threat severity. A reversible,
+      narrow, non-production change stays low-risk even during a critical incident — and a tiny change to a
+      payment system stays high-risk on a quiet Tuesday.</p>
+  </section>
+
+  <!-- 2 -->
+  <section id="invariant">
+    <h2 class="sec"><span class="num">02</span> The invariant</h2>
+    <p class="dek">One rule decides which parts of the system are allowed to be AI at all.</p>
+    <div class="rule">
+      <div class="label">The invariant</div>
+      <p>An AI model may produce any input that makes the gate <strong>more</strong> conservative.
+        Anything that could <strong>relax</strong> the gate is measured by code.</p>
+    </div>
+    <p>This is the load-bearing idea, and it sorts every variable in the system onto one side of a line.
+      Things that can <em>open</em> the gate — how reversible an action is, how many systems it touches,
+      whether it's production, who owns it — are measured from infrastructure, catalogs and code. Things
+      the model produces — its confidence, its written reasoning — can only ever push toward a human.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 700 250" role="img" aria-label="Measured facts can move a decision toward auto-execution; model-produced signals can only move it toward escalation, never the reverse.">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+            <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#4f5bd5"/>
+            </marker>
+          </defs>
+
+          <!-- the three gates on a line -->
+          <line x1="90" y1="140" x2="610" y2="140" stroke="currentColor" stroke-width="1.5" opacity=".35"/>
+          <circle cx="110" cy="140" r="7" fill="currentColor"/>
+          <circle cx="350" cy="140" r="7" fill="currentColor"/>
+          <circle cx="590" cy="140" r="7" fill="currentColor"/>
+          <text x="110" y="167" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">auto</text>
+          <text x="350" y="167" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">route to owner</text>
+          <text x="590" y="167" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">escalate</text>
+          <text x="110" y="185" text-anchor="middle" font-size="11" fill="currentColor" opacity=".55">most autonomous</text>
+          <text x="590" y="185" text-anchor="middle" font-size="11" fill="currentColor" opacity=".55">most cautious</text>
+
+          <!-- measured facts: can move left (toward auto) -->
+          <text x="350" y="42" text-anchor="middle" font-size="12.5" font-weight="600" fill="#4f5bd5">measured facts — reversibility, blast radius, environment, ownership</text>
+          <path d="M 500 62 L 170 62" stroke="#4f5bd5" stroke-width="2" fill="none" marker-end="url(#arA)"/>
+          <text x="335" y="80" text-anchor="middle" font-size="11.5" fill="#4f5bd5">can open the gate</text>
+          <line x1="170" y1="70" x2="130" y2="128" stroke="#4f5bd5" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>
+
+          <!-- model signals: can only move right -->
+          <text x="350" y="228" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">model signals — confidence, doc-grounded caution, audit opinion</text>
+          <path d="M 200 210 L 560 210" stroke="currentColor" stroke-width="2" fill="none" marker-end="url(#ar)"/>
+          <text x="380" y="202" text-anchor="middle" font-size="11.5" fill="currentColor">can only tighten</text>
+          <line x1="560" y1="204" x2="588" y2="152" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>
+        </svg>
+      </div>
+      <figcaption>The ratchet. Measured properties an attacker cannot fake are the only things that can
+        earn autonomy; anything a model produces moves in one direction only — toward a human.</figcaption>
+    </figure>
+
+    <p>This is the deliberate break from how the rest of the market gates AI actions. The current bar is
+      "if the model is &gt;99% confident, act." Model confidence is poorly calibrated, and an attacker who
+      can influence the inputs can manufacture it. So in Assent, <strong>confidence never authorizes
+      anything</strong> — it only ever withholds.</p>
+  </section>
+
+  <!-- 3 -->
+  <section id="pipeline">
+    <h2 class="sec"><span class="num">03</span> The pipeline</h2>
+    <p class="dek">What actually happens between a detection arriving and something changing.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 760 470" role="img" aria-label="A signal is proposed into a typed action, measured against inventory and catalog, owner-resolved from the graph, independently audited, then gated by a deterministic policy function into auto, route, or escalate; four fail-safe exits divert to a human.">
+          <defs>
+            <marker id="p-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+            <marker id="p-arR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#bd3b3b"/>
+            </marker>
+          </defs>
+
+          <!-- main spine -->
+          <rect x="20" y="24" width="150" height="42" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="95" y="43" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">signal in</text>
+          <text x="95" y="58" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".6">untrusted data</text>
+
+          <path d="M 95 66 L 95 96" stroke="currentColor" stroke-width="1.5" marker-end="url(#p-ar)"/>
+
+          <rect x="20" y="98" width="150" height="46" rx="8" fill="none" stroke="#4f5bd5" stroke-width="1.5"/>
+          <text x="95" y="117" text-anchor="middle" font-size="12.5" font-weight="600" fill="#4f5bd5">propose</text>
+          <text x="95" y="133" text-anchor="middle" font-size="10.5" fill="#4f5bd5" opacity=".85">picks action + confidence</text>
+
+          <path d="M 95 144 L 95 174" stroke="currentColor" stroke-width="1.5" marker-end="url(#p-ar)"/>
+
+          <rect x="20" y="176" width="150" height="46" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="95" y="195" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">normalize</text>
+          <text x="95" y="211" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".6">to catalog action</text>
+
+          <path d="M 95 222 L 95 252" stroke="currentColor" stroke-width="1.5" marker-end="url(#p-ar)"/>
+
+          <rect x="20" y="254" width="150" height="46" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="95" y="273" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">measure envelope</text>
+          <text x="95" y="289" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".6">inventory + catalog</text>
+
+          <path d="M 95 300 L 95 330" stroke="currentColor" stroke-width="1.5" marker-end="url(#p-ar)"/>
+
+          <rect x="20" y="332" width="150" height="46" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="95" y="351" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">resolve owner</text>
+          <text x="95" y="367" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".6">ownership graph</text>
+
+          <path d="M 170 355 L 250 355" stroke="currentColor" stroke-width="1.5" marker-end="url(#p-ar)"/>
+
+          <rect x="252" y="332" width="150" height="46" rx="8" fill="none" stroke="#4f5bd5" stroke-width="1.5"/>
+          <text x="327" y="351" text-anchor="middle" font-size="12.5" font-weight="600" fill="#4f5bd5">audit</text>
+          <text x="327" y="367" text-anchor="middle" font-size="10.5" fill="#4f5bd5" opacity=".85">independent 2nd opinion</text>
+
+          <path d="M 402 355 L 482 355" stroke="currentColor" stroke-width="1.5" marker-end="url(#p-ar)"/>
+
+          <rect x="484" y="326" width="160" height="58" rx="8" fill="none" stroke="currentColor" stroke-width="2"/>
+          <text x="564" y="349" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">policy()</text>
+          <text x="564" y="366" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".6">pure function · the gate</text>
+
+          <!-- outcomes -->
+          <path d="M 644 340 L 690 300" stroke="currentColor" stroke-width="1.5" marker-end="url(#p-ar)"/>
+          <path d="M 644 355 L 690 355" stroke="currentColor" stroke-width="1.5" marker-end="url(#p-ar)"/>
+          <path d="M 644 370 L 690 410" stroke="currentColor" stroke-width="1.5" marker-end="url(#p-ar)"/>
+          <text x="700" y="292" font-size="11.5" font-weight="650" fill="#1c7a4c">auto</text>
+          <text x="700" y="359" font-size="11.5" font-weight="650" fill="#a8680a">route</text>
+          <text x="700" y="418" font-size="11.5" font-weight="650" fill="#bd3b3b">escalate</text>
+
+          <!-- fail-safe exits -->
+          <path d="M 170 121 L 250 121" stroke="#bd3b3b" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#p-arR)"/>
+          <text x="258" y="118" font-size="11" fill="#bd3b3b">no playbook</text>
+          <text x="258" y="132" font-size="10" fill="#bd3b3b" opacity=".75">→ human triage</text>
+
+          <path d="M 170 199 L 250 199" stroke="#bd3b3b" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#p-arR)"/>
+          <text x="258" y="196" font-size="11" fill="#bd3b3b">unknown action</text>
+          <text x="258" y="210" font-size="10" fill="#bd3b3b" opacity=".75">→ escalate</text>
+
+          <path d="M 170 277 L 250 277" stroke="#bd3b3b" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#p-arR)"/>
+          <text x="258" y="274" font-size="11" fill="#bd3b3b">unknown system</text>
+          <text x="258" y="288" font-size="10" fill="#bd3b3b" opacity=".75">→ assume prod + tier-0</text>
+
+          <path d="M 327 378 L 327 404" stroke="#bd3b3b" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#p-arR)"/>
+          <text x="252" y="422" font-size="11" fill="#bd3b3b">dissent / divergence → escalate</text>
+
+          <!-- ledger -->
+          <rect x="430" y="424" width="214" height="34" rx="8" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".6"/>
+          <text x="537" y="446" text-anchor="middle" font-size="11.5" fill="currentColor" opacity=".75">every step → hash-chained ledger</text>
+          <path d="M 564 384 L 564 422" stroke="currentColor" stroke-width="1.2" opacity=".5" marker-end="url(#p-ar)"/>
+
+          <!-- legend -->
+          <rect x="20" y="424" width="12" height="12" rx="3" fill="none" stroke="#4f5bd5" stroke-width="1.5"/>
+          <text x="38" y="434" font-size="11" fill="currentColor" opacity=".75">AI-produced</text>
+          <rect x="20" y="444" width="12" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="38" y="454" font-size="11" fill="currentColor" opacity=".75">deterministic code</text>
+        </svg>
+      </div>
+      <figcaption>Only two stages are AI-produced, and neither can widen what the gate permits. Dashed red
+        paths are the fail-safes — every one of them ends at a human, never at a guess.</figcaption>
+    </figure>
+
+    <div class="note"><p>Note what the model is <em>not</em> trusted to do: it never measures its own blast
+      radius, never decides reversibility, never picks the owner, and never executes. It picks an action
+      from a fixed catalog and states how sure it is. That's the whole surface.</p></div>
+  </section>
+
+  <!-- 4 -->
+  <section id="envelope">
+    <h2 class="sec"><span class="num">04</span> The risk envelope</h2>
+    <p class="dek">Four axes, each with a specific source. Three of them are facts; one is an opinion.</p>
+    <div class="formula">
+      risk_envelope = blast_radius × reversibility × environment × confidence
+    </div>
+    <div class="tw"><table>
+      <thead><tr><th>Axis</th><th>What it measures</th><th>Where it comes from</th><th>Can open the gate?</th></tr></thead>
+      <tbody>
+        <tr><td class="m">blast_radius</td><td>How many systems/users the action touches</td>
+          <td>Inventory: <code>1 + dependents</code></td><td><span class="pill p-det">measured</span></td></tr>
+        <tr><td class="m">reversibility</td><td>Whether it can be cleanly undone</td>
+          <td>Action catalog, per action type</td><td><span class="pill p-det">measured</span></td></tr>
+        <tr><td class="m">environment</td><td>dev / staging / prod</td>
+          <td>Inventory metadata for the target</td><td><span class="pill p-det">measured</span></td></tr>
+        <tr><td class="m">confidence</td><td>How sure the agent is about the diagnosis</td>
+          <td>The model</td><td><span class="pill p-llm">tightens only</span></td></tr>
+        <tr><td class="m">hits_tier0</td><td>Whether the target is a crown-jewel system</td>
+          <td>Inventory flag</td><td><span class="pill p-det">measured</span></td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Reversibility is a property of the action, not the situation</h3>
+    <p>It's classified once, in code, per action type — so it can't be argued down in the moment. The
+      catalog is the safety boundary: an action that isn't in it cannot be proposed at all.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Class</th><th>Meaning</th><th>Actions in the current catalog</th></tr></thead>
+      <tbody>
+        <tr><td class="m t-auto">reversible</td><td>Clean, automated undo</td>
+          <td class="m">block_domain, quarantine_host, disable_user_session</td></tr>
+        <tr><td class="m t-route">recoverable</td><td>Undo possible, but with cost or latency</td>
+          <td class="m">rotate_credential, revoke_iam_role</td></tr>
+        <tr><td class="m t-esc">irreversible</td><td>No undo — never auto-executes</td>
+          <td class="m">delete_volume, terminate_instance</td></tr>
+      </tbody>
+    </table></div>
+    <p>Where the catalog and the proposed envelope disagree, the <strong>more conservative</strong> classification
+      wins. An agent claiming a volume deletion is reversible doesn't get to make it so.</p>
+  </section>
+
+  <!-- 5 -->
+  <section id="gate">
+    <h2 class="sec"><span class="num">05</span> Scoring the gate</h2>
+    <p class="dek">Auto-execution is a checklist, not a score to beat. Every item must pass.</p>
+    <p>There is no weighted total here, deliberately — a single high number can't buy its way past a
+      hard limit. These are the shipped defaults, and each is a per-customer dial that can only be
+      made <em>stricter</em> than the measured facts allow:</p>
+    <div class="tw"><table>
+      <thead><tr><th>Setting</th><th class="m">Default</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td>Environments eligible for auto</td><td class="m">dev, staging</td><td>Production writes never auto-execute</td></tr>
+        <tr><td>Max blast radius for auto</td><td class="m">5</td><td>Anything wider goes to a human</td></tr>
+        <tr><td>Tier-0 systems may auto</td><td class="m">false</td><td>Crown jewels always gated</td></tr>
+        <tr><td>Reversibility required for auto</td><td class="m">reversible</td><td>Recoverable and irreversible always gated</td></tr>
+        <tr><td>Rollback plan required</td><td class="m">yes</td><td>No undo plan ⇒ no autonomy, ever</td></tr>
+        <tr><td>Confidence floor for auto</td><td class="m">0.85</td><td>Below this, a human decides — it never authorizes</td></tr>
+        <tr><td>Owner confidence to route</td><td class="m">0.75</td><td>Below this, escalate rather than guess an approver</td></tr>
+        <tr><td>Max acting-vs-audit divergence</td><td class="m">0.25</td><td>Wider disagreement escalates on its own</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Order of evaluation</h3>
+    <p>The sequence matters, because the early exits are the safety story:</p>
+    <div class="formula">
+1. action not in catalog        <span class="cmt">→ escalate</span>
+2. action is a read             <span class="cmt">→ auto (reads are always autonomous)</span>
+3. audit dissents or diverges   <span class="cmt">→ escalate</span>
+4. any AUTO checklist item fails<span class="cmt">→ gate (route if owner confident, else escalate)</span>
+5. effective confidence &lt; 0.85  <span class="cmt">→ gate  ·  min(acting, audit)</span>
+6. doc-grounded caution flag    <span class="cmt">→ gate</span>
+7. otherwise                    <span class="cmt">→ auto</span>
+    </div>
+    <p>Steps 3, 5 and 6 are the model-influenced ones — and note they appear only as ways <em>out</em> of
+      auto-execution. There is no step where a model input moves a decision toward autonomy.</p>
+    <div class="note"><p><strong>Reads are free.</strong> The real trust boundary is read vs. write, not
+      environment. Querying posture, listing alerts, and investigating are fully autonomous — the gate
+      only engages when something would actually change.</p></div>
+  </section>
+
+  <!-- 6 -->
+  <section id="ownership">
+    <h2 class="sec"><span class="num">06</span> Scoring ownership</h2>
+    <p class="dek">Who owns this system, how sure are we, and is that belief still fresh?</p>
+    <p>Approvals are worthless if they go to the wrong person, so ownership carries its own confidence
+      score. Rather than demanding a company fill in a giant asset database, Assent <strong>derives</strong>
+      ownership from systems that already encode it, and scores each claim by source and age.</p>
+
+    <div class="tw"><table>
+      <thead><tr><th>Tier</th><th>Source</th><th>Examples</th><th class="m">Base</th><th class="m">Half-life</th></tr></thead>
+      <tbody>
+        <tr><td class="m">1</td><td>code</td><td>CODEOWNERS, git blame, Terraform, K8s labels</td><td class="num">0.90</td><td class="num">365d</td></tr>
+        <tr><td class="m">2</td><td>ops</td><td>PagerDuty, Opsgenie, service catalogs</td><td class="num">0.80</td><td class="num">45d</td></tr>
+        <tr><td class="m">3</td><td>cloud</td><td>Resource tags, CMDB, EDR inventory</td><td class="num">0.65</td><td class="num">90d</td></tr>
+        <tr><td class="m">4</td><td>identity</td><td>IAM policies, group membership</td><td class="num">0.60</td><td class="num">120d</td></tr>
+        <tr><td class="m">5</td><td>docs</td><td>Runbooks, wikis, postmortems</td><td class="num">0.40</td><td class="num">30d</td></tr>
+        <tr><td class="m">6</td><td>human</td><td>A person confirmed it by approving</td><td class="num">0.98</td><td class="num">180d</td></tr>
+      </tbody>
+    </table></div>
+    <p>Documents score lowest for a reason: the moment an attacker can write to a wiki, that wiki is
+      untrusted input. A poisoned runbook can raise caution but can never grant permission.</p>
+
+    <h3>Staleness decays a claim</h3>
+    <div class="formula">confidence = base × 0.5 <span class="cmt">^</span> (age_days / half_life_days)</div>
+    <p>A CODEOWNERS entry ages slowly; a PagerDuty rotation goes stale fast. Concrete decay of a
+      <code>code</code> claim (base 0.90):</p>
+    <div class="tw"><table>
+      <thead><tr><th class="m">Age</th><th class="m">0d</th><th class="m">30d</th><th class="m">90d</th><th class="m">180d</th><th class="m">365d</th><th class="m">730d</th></tr></thead>
+      <tbody><tr><td>Confidence</td><td class="num">0.900</td><td class="num">0.850</td><td class="num">0.759</td><td class="num">0.639</td><td class="num">0.450</td><td class="num">0.225</td></tr></tbody>
+    </table></div>
+    <p>At 365 days that claim has fallen to 0.450 — below the 0.75 routing floor, so it can no longer
+      silently route an approval. A stale belief stops being trusted without anyone having to notice.</p>
+
+    <h3>Agreement across sources compounds</h3>
+    <div class="formula">combined = 1 − ∏ (1 − confidence<span class="cmt">ᵢ</span>)  <span class="cmt">// independent signals corroborating</span></div>
+    <div class="tw"><table>
+      <thead><tr><th>Sources agreeing</th><th class="m">Combined</th><th>Clears 0.75 routing floor?</th></tr></thead>
+      <tbody>
+        <tr><td class="m">cloud</td><td class="num">0.6500</td><td class="t-esc">no — escalates</td></tr>
+        <tr><td class="m">ops</td><td class="num">0.8000</td><td class="t-auto">yes</td></tr>
+        <tr><td class="m">ops + cloud</td><td class="num">0.9300</td><td class="t-auto">yes</td></tr>
+        <tr><td class="m">code + ops</td><td class="num">0.9800</td><td class="t-auto">yes</td></tr>
+        <tr><td class="m">code + ops + cloud</td><td class="num">0.9930</td><td class="t-auto">yes</td></tr>
+      </tbody>
+    </table></div>
+    <p>A cloud tag alone isn't enough to route a production change to someone — which is exactly what
+      happens to <code>chg-0004</code> in §09. Two independent sources agreeing is.</p>
+
+    <div class="rule">
+      <div class="label">The flywheel</div>
+      <p>Every human approval writes a <code>human</code>-tier claim back into the graph. The system
+        learns who owns what as a side effect of normal use — and it gets most accurate exactly where
+        it's most active.</p>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section id="audit">
+    <h2 class="sec"><span class="num">07</span> Scoring the second opinion</h2>
+    <p class="dek">A separate reviewer that never sees the first one's answer.</p>
+    <p>A second agent independently scores how safe the action looks. The critical design choice: it
+      <strong>never reads the acting agent's confidence</strong>. If it did, it would echo rather than
+      check. It starts at 1.0 and multiplies down for each risk factor it measures itself:</p>
+    <div class="tw"><table>
+      <thead><tr><th>Factor</th><th class="m">Multiplier</th></tr></thead>
+      <tbody>
+        <tr><td>Target is production</td><td class="num">× 0.55</td></tr>
+        <tr><td>Target is staging</td><td class="num">× 0.97</td></tr>
+        <tr><td>Target is tier-0</td><td class="num">× 0.50</td></tr>
+        <tr><td>Action is recoverable (not cleanly reversible)</td><td class="num">× 0.80</td></tr>
+        <tr><td>Action is irreversible</td><td class="num">× 0.30</td></tr>
+        <tr><td>Blast radius</td><td class="num">× 1 / (1 + radius/20)</td></tr>
+        <tr><td>No rollback plan</td><td class="num">× 0.30</td></tr>
+        <tr><td>Doc-grounded caution raised</td><td class="num">× 0.70</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Two ways the second opinion forces a human</h3>
+    <p><strong>Dissent</strong> — the auditor's score collapses below 0.20, or the action is one it can't
+      classify at all. <strong>Divergence</strong> — the two agents disagree by more than 0.25. The
+      disagreement itself is the signal; nobody needs to adjudicate who was right.</p>
+
+    <div class="calc">
+      <div class="calc-head">Worked example — <span class="m">chg-0002</span>: rotate a leaked credential on <span class="m">payments-api</span></div>
+      <table>
+        <thead><tr><th>Step</th><th class="m">Multiplier</th><th class="m">Running score</th></tr></thead>
+        <tbody>
+          <tr><td>Start</td><td class="num">—</td><td class="num">1.0000</td></tr>
+          <tr><td>Production target</td><td class="num">× 0.55</td><td class="num">0.5500</td></tr>
+          <tr><td>Tier-0 system</td><td class="num">× 0.50</td><td class="num">0.2750</td></tr>
+          <tr><td>Recoverable, not reversible</td><td class="num">× 0.80</td><td class="num">0.2200</td></tr>
+          <tr><td>Blast radius 5</td><td class="num">× 0.80</td><td class="num">0.1760</td></tr>
+          <tr><td colspan="2"><strong>Audit score</strong> — below the 0.20 dissent floor</td>
+            <td class="num t-esc"><strong>0.176</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The acting agent was 91% sure. The auditor landed at 17.6% and dissented. Assent escalated —
+      and it would have escalated on the divergence alone (0.91 − 0.176 = 0.73, far past 0.25) even if
+      the dissent floor hadn't caught it. Two independent reasons to stop.</p>
+  </section>
+
+  <!-- 8 -->
+  <section id="missing">
+    <h2 class="sec"><span class="num">08</span> When data is missing</h2>
+    <p class="dek">The behavior that matters most is what happens when the system doesn't know something.</p>
+    <p>Incomplete data degrades to "ask a human," never to "guess and act." Gaps cost latency, not safety —
+      which is what makes it viable to deploy before every integration is wired up.</p>
+    <div class="tw"><table>
+      <thead><tr><th>What's missing</th><th>What the system assumes</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td>System not in the inventory</td><td class="m">prod + tier-0 + radius 100</td><td class="t-esc">cannot auto-execute</td></tr>
+        <tr><td>No owner on file</td><td class="m">confidence 0.0</td><td class="t-esc">escalate, never guess an approver</td></tr>
+        <tr><td>Owner known but below 0.75</td><td>belief too weak to act on</td><td class="t-esc">escalate</td></tr>
+        <tr><td>No playbook for the signal</td><td>no action is proposed at all</td><td class="t-route">human triage</td></tr>
+        <tr><td>Action not in the catalog</td><td>risk is unclassifiable</td><td class="t-esc">escalate</td></tr>
+        <tr><td>No rollback plan</td><td>the change is not undoable</td><td class="t-esc">refused at engine <em>and</em> executor</td></tr>
+      </tbody>
+    </table></div>
+    <p>Note the last row: the rule is enforced twice, in two independent places. Even a caller that
+      bypassed the policy engine entirely still can't strand an un-undoable change.</p>
+  </section>
+
+  <!-- 9 -->
+  <section id="worked">
+    <h2 class="sec"><span class="num">09</span> Five worked examples</h2>
+    <p class="dek">The demo world, end to end — every number below is produced by the running system.</p>
+    <div class="tw"><table>
+      <thead><tr><th class="m">ID</th><th>Action → target</th><th class="m">Env</th><th class="m">Radius</th><th class="m">Reversibility</th><th class="m">Acting</th><th class="m">Audit</th><th>Outcome</th></tr></thead>
+      <tbody>
+        <tr><td class="m">chg-0001</td><td class="m">block_domain → staging-edge-fw</td><td class="m">staging</td><td class="num">1</td><td class="m t-auto">reversible</td><td class="num">0.94</td><td class="num">0.92</td><td><span class="pill p-auto">auto</span></td></tr>
+        <tr><td class="m">chg-0002</td><td class="m">rotate_credential → payments-api</td><td class="m t-esc">prod</td><td class="num">5</td><td class="m t-route">recoverable</td><td class="num">0.91</td><td class="num t-esc">0.18</td><td><span class="pill p-esc">escalate</span></td></tr>
+        <tr><td class="m">chg-0003</td><td class="m">quarantine_host → laptop-4471</td><td class="m">staging</td><td class="num">1</td><td class="m t-auto">reversible</td><td class="num">0.88</td><td class="num">0.92</td><td><span class="pill p-auto">auto</span></td></tr>
+        <tr><td class="m">chg-0004</td><td class="m">revoke_iam_role → analytics-worker</td><td class="m t-esc">prod</td><td class="num">3</td><td class="m t-route">recoverable</td><td class="num">0.82</td><td class="num">0.38</td><td><span class="pill p-esc">escalate</span></td></tr>
+        <tr><td class="m">chg-0005</td><td class="m">ransomware_precursor → dev-sandbox-07</td><td class="m">dev</td><td class="num">—</td><td class="m">—</td><td class="num">—</td><td class="num">—</td><td><span class="pill p-route">triage</span></td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Why each landed where it did</h3>
+    <div class="tw"><table>
+      <thead><tr><th class="m">ID</th><th>The system's own stated reason</th></tr></thead>
+      <tbody>
+        <tr><td class="m">chg-0001</td><td>Reversible, narrow, non-prod, has a rollback plan, confidence above floor — the low envelope earns auto-execution.</td></tr>
+        <tr><td class="m">chg-0002</td><td>Independent audit dissents (prod target; tier-0 system; recoverable action).</td></tr>
+        <tr><td class="m">chg-0003</td><td>Same as chg-0001 — a quarantine is reversible and touches one host.</td></tr>
+        <tr><td class="m">chg-0004</td><td>Acting confidence 0.82 and audit confidence 0.38 diverge by 0.44 &gt; 0.25 — disagreement escalates.</td></tr>
+        <tr><td class="m">chg-0005</td><td>No playbook for signal kind <code>ransomware_precursor</code> — needs a human.</td></tr>
+      </tbody>
+    </table></div>
+    <p>Two subtleties worth pointing at when someone asks how this differs from a rules engine.
+      <strong>chg-0004</strong> was never going to auto-execute (it's prod), but it <em>escalated</em>
+      rather than routing to a named owner — because ownership came only from a cloud tag at 0.65, below
+      the 0.75 routing floor. The system knew a plausible owner and still refused to trust it.
+      <strong>chg-0005</strong> is the honest case: an unmapped signal produces no action at all rather
+      than an improvised one.</p>
+  </section>
+
+  <!-- 10 -->
+  <section id="ledger">
+    <h2 class="sec"><span class="num">10</span> The audit ledger</h2>
+    <p class="dek">Answering "who allowed this, and on what basis" — provably.</p>
+    <p>Every consequential moment is appended to a hash-chained log: the proposal, the decision and its
+      reasons, the audit opinion, the execution, the human approval or denial, the rollback. Each entry
+      commits to the hash of the one before it:</p>
+    <div class="formula">entry_hash = sha256( seq, timestamp, event, change_id, actor, detail, prev_hash )</div>
+    <p>Change any historical entry — a timestamp, an actor, a reason — and every subsequent hash stops
+      reconciling. <code>verify()</code> walks the chain and names the first entry that breaks. The log
+      isn't merely a record of what happened; it's evidence that the record hasn't been edited since.</p>
+    <div class="note"><p>This matters because "lack of accountability" is one of the named reasons security
+      teams refuse to give agents write access. A log an operator can quietly amend doesn't answer that
+      objection. A chain that detects amendment does.</p></div>
+  </section>
+
+  <!-- 11 -->
+  <section id="scope">
+    <h2 class="sec"><span class="num">11</span> Real vs. stand-in</h2>
+    <p class="dek">What's built, and what's deliberately still a placeholder.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Component</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Policy engine — the gate</td><td class="t-auto">Real, deterministic, 75 tests</td></tr>
+        <tr><td>Risk envelope + action catalog</td><td class="t-auto">Real</td></tr>
+        <tr><td>Ownership graph — decay, corroboration, flywheel</td><td class="t-auto">Real</td></tr>
+        <tr><td>Independent audit agent</td><td class="t-auto">Real (rule-based reviewer)</td></tr>
+        <tr><td>Hash-chained ledger</td><td class="t-auto">Real</td></tr>
+        <tr><td>Approval queue + web app</td><td class="t-auto">Real, runnable</td></tr>
+        <tr><td>Diagnosis — deciding <em>which</em> action responds to a threat</td><td class="t-route">Stand-in: an explicit playbook, not an LLM</td></tr>
+        <tr><td>Execution against real infrastructure</td><td class="t-route">Stand-in: simulated adapter</td></tr>
+      </tbody>
+    </table></div>
+    <p>The ordering is intentional. The safety rails were built <em>first</em>, so that when a model is
+      dropped into the diagnosis slot it can only ever propose within them — it inherits every constraint
+      described above rather than needing to be trusted. The same is true of execution: the seam is
+      designed to hand approved actions to enforcement infrastructure that already exists, rather than
+      rebuilding it.</p>
+    <div class="rule">
+      <div class="label">The bet</div>
+      <p>Everything here is engineering. The open question is commercial: under what exact conditions
+        would a security team let an agent change production at all? That's answered by customers,
+        not code — but it's a far easier conversation to have with a working system than a slide.</p>
+    </div>
+  </section>
+
+  <footer class="end">
+    <span>Assent · technical reference</span>
+    <span>All figures computed from the running prototype</span>
+  </footer>
+</main>
