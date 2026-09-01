@@ -8,8 +8,8 @@ Investigation tools tell you what is wrong. Assent decides **who may act**, unde
 
 **Alex Calzada** · Copyright © 2026 · see [LICENSE](LICENSE)
 
-> This repository publishes the **concept and license only**. The working
-> implementation is not public.
+> This public repository documents the concept and shows the control plane.
+> The working implementation is private.
 
 ---
 
@@ -150,14 +150,18 @@ flowchart TB
   M3 -.->|escalate only| C6
 ```
 
-The model may propose actions and answer questions. The gate is always computed
-by deterministic code — with or without an LLM attached.
+When an LLM is attached, the model can propose actions and answer questions in
+thread. When it is not, the prototype runs fully offline with rule-based
+proposals and retrieval-backed answers. Either way, the gate is computed by
+deterministic code.
 
 ---
 
 ## Control plane
 
-The product surface is organized around how security teams actually work:
+The reference UI is a single-page control plane. Four top-level surfaces map to
+how security teams actually work: investigate in **Threads**, assent in
+**Approvals**, orient on **Infrastructure**, and wire sources in **Connectors**.
 
 | Surface | Purpose |
 |---|---|
@@ -172,40 +176,81 @@ The home view opens to an empty composer. Open alerts sit in the sidebar; you
 can click one to open its thread or type a free-form question about posture,
 ownership, blast radius, or rollback.
 
+![Threads — home view with open alerts in the sidebar and a free-form investigation composer](docs/images/threads.png)
+
+*The sidebar lists open alerts (each is a `Change` waiting on a gate). The
+composer accepts natural-language questions. With an API key, answers use the
+LLM; without one, retrieval over the incident package still works.*
+
 ### Alert thread — agents in the open
 
 Each alert thread shows the full pipeline as a conversation: sensor detection →
 Proposer → Ownership Resolver → Independent Auditor → Policy Engine. You see
 exactly what was proposed, who owns the stack, whether audit agreed, and the
-final gate decision (`AUTO`, `ROUTE`, or `ESCALATE`). A remediation card
-summarizes the proposed action; approve/deny/undo controls live in the thread
-header.
+final gate decision (`AUTO`, `ROUTE`, or `ESCALATE`). A remediation card at the
+top summarizes the proposed action; approve/deny/undo controls live in the
+thread header.
 
-*Example: a DNS sensor flags egress to a known C2 domain. The Proposer
-suggests `block_domain` on the edge firewall. Ownership resolves to the
-network security team. Audit concurs. Policy auto-executes because the action
-is reversible, narrow, and in-scope — with a rollback plan on record.*
+![Alert thread — multi-agent pipeline for a C2 egress block on staging-edge-fw, decision AUTO](docs/images/alert-thread.png)
+
+*Example: a DNS sensor flags egress to `c2.evil.example`. The Proposer suggests
+`block_domain` on `staging-edge-fw`. Ownership resolves to `team-netsec`. Audit
+concurs. Policy auto-executes because the action is reversible, narrow, and
+in-scope — with a rollback plan on record.*
 
 ### Infrastructure — where changes land
 
-The infrastructure map lays out the environment by zone (WAN, edge, cloud,
+The infrastructure map lays out your environment by zone (WAN, edge, cloud,
 endpoints, staging, production, development). Each node is a system in the
-inventory. Open changes are marked on affected nodes; active paths highlight
-connections involved in pending work; agent status cards summarize what each
-machine role is doing across the fleet.
+inventory with environment, tier, and owner metadata. **Open changes** are
+marked on affected nodes; **active paths** highlight connections involved in
+pending work; a dot shows when an agent is operating on a system. Agent status
+cards at the top summarize what each machine role is doing across the fleet.
+
+![Infrastructure — system map with zones, open changes, and agent status cards](docs/images/infrastructure.png)
+
+*Thicker dashed lines are active paths for open changes. The red bar on a node
+means a change is pending there. Expand the map full-screen from the corner
+control when the topology is dense.*
 
 ### Approvals — named humans, not queues
 
 Writes that do not earn auto-execution land in an approval inbox scoped to
 **you** or your **team**. Each card shows severity, gate reason, owner,
-environment, blast radius, and reversibility. The audit table records every
-decision — who assented, why the engine gated, and what rollback applies.
+environment, blast radius, and reversibility. The audit table below records
+every decision — who assented, why the engine gated, and what rollback applies.
+
+![Approvals — inbox for escalated writes and tamper-evident audit log](docs/images/approvals.png)
+
+*Three changes await human assent (credential rotation, IAM revoke, ransomware
+triage with unknown owner). Two were auto-executed by policy. The audit row for
+`chg-0001` shows the engine's reasoning and rollback instructions.*
 
 ### Connectors — signals in, actions out
 
 Connectors are the integration surface: detection sources feed signals in;
-enforcement gateways execute approved changes out. The catalog covers EDR,
-DNS, CSPM, cloud inventory, scanners, and action gateways.
+enforcement gateways execute approved changes out. The prototype ships with a
+catalog of connector types (EDR, DNS, CSPM, cloud inventory, scanners, action
+gateway) to show how a deployment would be wired.
+
+![Connectors — integration catalog grouped by detection, infrastructure, identity, scanners, and enforcement](docs/images/connectors.png)
+
+---
+
+## What the prototype includes
+
+| Layer | Role |
+|---|---|
+| Policy engine | Pure function: `(envelope, owner) → gate` |
+| Ownership graph | Resolves authoritative owner from corroborated claims |
+| Audit agent | Second opinion; dissent escalates |
+| Approval card | Renders a gated `Change` from real engine output |
+| LLM layer (optional) | Proposer + chat; offline fallback when no API key |
+| Dashboard | Control plane UI with threads, approvals, infrastructure map, connectors |
+| Test suite | 105 tests on engine, graph, audit, ledger, and UI routes |
+
+The demo world uses synthetic inventory, signals, and team personas so you can
+click through the full loop locally.
 
 ---
 
