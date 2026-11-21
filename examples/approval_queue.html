@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assent — approval queue</title>
+<style>
+:root {
+  --bg: #eef0f4;
+  --surface: #ffffff;
+  --surface-2: #f5f6f9;
+  --border: #d6dae2;
+  --border-strong: #c2c8d3;
+  --ink: #1b1e26;
+  --ink-soft: #565d6b;
+  --ink-faint: #8990a0;
+  --accent: #4f5bd5;
+  --auto: #1c7a4c;   --auto-bg: #e4f4ea;   --auto-line: #b7e0c7;
+  --route: #a8680a;  --route-bg: #fbeed6;  --route-line: #ecd4a3;
+  --escalate: #bd3b3b; --escalate-bg: #f8e2e2; --escalate-line: #eec2c2;
+  --shadow: 0 1px 2px rgba(20,24,34,.06), 0 8px 24px rgba(20,24,34,.06);
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1016;
+    --surface: #171a22;
+    --surface-2: #1e222c;
+    --border: #2a2f3b;
+    --border-strong: #3a4150;
+    --ink: #eef0f5;
+    --ink-soft: #a8b0bf;
+    --ink-faint: #6c7488;
+    --accent: #8b93f0;
+    --auto: #57c98a;   --auto-bg: #14271d;   --auto-line: #23503a;
+    --route: #e0a94e;  --route-bg: #2a2113;  --route-line: #5a4523;
+    --escalate: #ea7d7d; --escalate-bg: #2a1618; --escalate-line: #5a2e30;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1016;
+  --surface: #171a22;
+  --surface-2: #1e222c;
+  --border: #2a2f3b;
+  --border-strong: #3a4150;
+  --ink: #eef0f5;
+  --ink-soft: #a8b0bf;
+  --ink-faint: #6c7488;
+  --accent: #8b93f0;
+  --auto: #57c98a;   --auto-bg: #14271d;   --auto-line: #23503a;
+  --route: #e0a94e;  --route-bg: #2a2113;  --route-line: #5a4523;
+  --escalate: #ea7d7d; --escalate-bg: #2a1618; --escalate-line: #5a2e30;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 760px; margin: 0 auto; padding: 48px 20px 72px; }
+
+.masthead { margin-bottom: 28px; }
+.masthead .brand {
+  font-weight: 700; letter-spacing: -0.01em; font-size: 15px;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.masthead .brand::before {
+  content: ""; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.masthead h1 { font-size: 26px; letter-spacing: -0.02em; margin: 12px 0 4px; text-wrap: balance; }
+.masthead p { color: var(--ink-soft); margin: 0; font-size: 15px; max-width: 60ch; }
+
+.queue { display: flex; flex-direction: column; gap: 20px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 22px 22px 18px;
+  border-left: 3px solid var(--tone-line, var(--border));
+}
+.card.tone-auto     { --tone: var(--auto);     --tone-bg: var(--auto-bg);     --tone-line: var(--auto-line); }
+.card.tone-route    { --tone: var(--route);    --tone-bg: var(--route-bg);    --tone-line: var(--route-line); }
+.card.tone-escalate { --tone: var(--escalate); --tone-bg: var(--escalate-bg); --tone-line: var(--escalate-line); }
+
+.card-head { margin-bottom: 14px; }
+.verdict { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.pill {
+  font-size: 12px; font-weight: 650; letter-spacing: 0.02em;
+  padding: 3px 10px; border-radius: 999px;
+  color: var(--tone); background: var(--tone-bg);
+  border: 1px solid var(--tone-line);
+}
+.badge {
+  font-size: 11px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 5px;
+}
+.badge-tier0 { color: var(--escalate); background: var(--escalate-bg); border: 1px solid var(--escalate-line); }
+.badge-state { color: var(--ink-soft); background: var(--surface-2); border: 1px solid var(--border); }
+.rec-id { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
+.actions form { margin: 0; }
+.action-type {
+  font-family: var(--mono); font-size: 18px; font-weight: 600;
+  letter-spacing: -0.01em; margin: 0; color: var(--ink);
+}
+.stance { margin: 4px 0 0; color: var(--ink-soft); font-size: 14px; }
+
+.command {
+  display: flex; align-items: baseline; gap: 10px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 9px; padding: 10px 12px; margin-bottom: 16px;
+  overflow-x: auto;
+}
+.command-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--ink-faint); font-weight: 600; flex: none;
+}
+.command code { font-family: var(--mono); font-size: 13.5px; color: var(--ink); white-space: nowrap; }
+.command .arrow { color: var(--ink-faint); padding: 0 2px; }
+
+.grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1px; background: var(--border);
+  border: 1px solid var(--border); border-radius: 9px; overflow: hidden;
+  margin-bottom: 16px;
+}
+.field { background: var(--surface); padding: 10px 12px; }
+.field-label {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--ink-faint); font-weight: 600; margin-bottom: 3px;
+}
+.field-value { font-size: 14px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.field-value.mono { font-family: var(--mono); font-size: 13px; }
+.field-value.tone-auto { color: var(--auto); font-weight: 600; }
+.field-value.tone-route { color: var(--route); font-weight: 600; }
+.field-value.tone-escalate { color: var(--escalate); font-weight: 600; }
+.muted { color: var(--ink-faint); font-weight: 400; }
+
+.block { margin-bottom: 14px; }
+.block-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--ink-faint); font-weight: 600; margin-bottom: 5px;
+}
+.block-body { margin: 0; font-size: 14px; color: var(--ink-soft); }
+.block-body.mono { font-family: var(--mono); font-size: 13px; }
+
+.audit {
+  border: 1px solid var(--border); border-radius: 9px;
+  padding: 11px 14px; margin-bottom: 14px; background: var(--surface-2);
+}
+.audit-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.audit-conf { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.audit-conf strong { color: var(--ink); }
+
+.trail {
+  background: var(--tone-bg);
+  border: 1px solid var(--tone-line);
+  border-radius: 9px; padding: 12px 14px; margin-bottom: 18px;
+}
+.trail .block-label { color: color-mix(in srgb, var(--tone) 70%, var(--ink-soft)); }
+.reasons { margin: 0; padding-left: 18px; }
+.reasons li { font-size: 13.5px; color: var(--ink); margin: 4px 0; }
+.reasons li::marker { color: var(--tone); }
+
+.actions { display: flex; gap: 10px; }
+.btn {
+  font-family: var(--sans); font-size: 14px; font-weight: 600;
+  padding: 9px 16px; border-radius: 8px; cursor: pointer;
+  border: 1px solid transparent; transition: filter .12s ease, background .12s ease;
+}
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn-primary { color: #fff; background: var(--tone, var(--accent)); }
+.btn-primary:hover { filter: brightness(1.06); }
+.btn-secondary { color: var(--ink-soft); background: transparent; border-color: var(--border-strong); }
+.btn-secondary:hover { background: var(--surface-2); }
+
+.foot { margin-top: 28px; color: var(--ink-faint); font-size: 12.5px; text-align: center; }
+.foot code { font-family: var(--mono); }
+
+@media (max-width: 520px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="masthead">
+      <div class="brand">Assent</div>
+      <h1>Approval queue</h1>
+      <p>Every action an agent proposes, gated by the deterministic policy engine. Nothing acts without assent — earned (auto) or granted (a human&#x27;s).</p>
+    </div>
+    <div class="queue">
+
+      <article class="card tone-auto">
+        <header class="card-head">
+          <div class="verdict">
+            <span class="pill pill-auto">Auto-executed</span>
+            
+          </div>
+          <h2 class="action-type">block_domain</h2>
+          <p class="stance">Low risk envelope — executed automatically, logged, and reversible.</p>
+        </header>
+
+        <div class="command">
+          <span class="command-label">action</span>
+          <code>block_domain <span class="arrow">→</span> edge-fw</code>
+        </div>
+
+        <div class="grid">
+          <div class="field"><div class="field-label">Environment</div><div class="field-value tone-route">staging</div></div>
+          <div class="field"><div class="field-label">Blast radius</div><div class="field-value">1 system</div></div>
+          <div class="field"><div class="field-label">Reversibility</div><div class="field-value tone-auto">reversible</div></div>
+          <div class="field"><div class="field-label">Confidence</div><div class="field-value">96%</div></div>
+          <div class="field"><div class="field-label">Owner</div><div class="field-value">team-netsec <span class="muted">· code+1 · 98%</span></div></div>
+          <div class="field"><div class="field-label">Write</div><div class="field-value">yes</div></div>
+        </div>
+
+        <div class="block">
+          <div class="block-label">Reasoning</div>
+          <p class="block-body">Domain c2.evil.example matches a known C2 pattern in the active threat feed and appears in egress logs for one host. Blocking is narrow and reversible.</p>
+        </div>
+
+        <div class="block">
+          <div class="block-label">Rollback</div>
+          <p class="block-body mono">Remove c2.evil.example from the egress blocklist.</p>
+        </div>
+
+        
+        <div class="block audit">
+          <div class="block-label">Independent audit · second opinion</div>
+          <div class="audit-row">
+            <span class="pill pill-auto">Concurs</span>
+            <span class="audit-conf">reads <strong>92%</strong>
+              vs acting 96%</span>
+          </div>
+          <p class="block-body">no risk factors flagged</p>
+        </div>
+    
+
+        <div class="block trail">
+          <div class="block-label">Why the engine decided this</div>
+          <ul class="reasons"><li>reversible + narrow + in-scope environment with a rollback plan and sufficient confidence; low risk envelope earns auto-execution</li></ul>
+        </div>
+
+        <footer class="actions"><button class="btn btn-primary tone-auto">Undo</button><button class="btn btn-secondary">View log</button></footer>
+      </article>
+    
+
+      <article class="card tone-escalate">
+        <header class="card-head">
+          <div class="verdict">
+            <span class="pill pill-escalate">Escalated</span>
+            <span class="badge badge-tier0">tier-0</span>
+          </div>
+          <h2 class="action-type">rotate_credential</h2>
+          <p class="stance">No confident owner or a fail-safe tripped — broadened to a human decision.</p>
+        </header>
+
+        <div class="command">
+          <span class="command-label">action</span>
+          <code>rotate_credential <span class="arrow">→</span> payments-api</code>
+        </div>
+
+        <div class="grid">
+          <div class="field"><div class="field-label">Environment</div><div class="field-value tone-escalate">prod</div></div>
+          <div class="field"><div class="field-label">Blast radius</div><div class="field-value">3 systems</div></div>
+          <div class="field"><div class="field-label">Reversibility</div><div class="field-value tone-route">recoverable</div></div>
+          <div class="field"><div class="field-label">Confidence</div><div class="field-value">91%</div></div>
+          <div class="field"><div class="field-label">Owner</div><div class="field-value">team-payments <span class="muted">· code · 90%</span></div></div>
+          <div class="field"><div class="field-label">Write</div><div class="field-value">yes</div></div>
+        </div>
+
+        <div class="block">
+          <div class="block-label">Reasoning</div>
+          <p class="block-body">Leaked API key observed in a public paste. Rotation is the fix, but the key fans out to three consumers and the target is tier-0.</p>
+        </div>
+
+        <div class="block">
+          <div class="block-label">Rollback</div>
+          <p class="block-body mono">Re-issue the prior key version from the secrets manager and re-point consumers.</p>
+        </div>
+
+        
+        <div class="block audit">
+          <div class="block-label">Independent audit · second opinion</div>
+          <div class="audit-row">
+            <span class="pill pill-escalate">Dissent</span>
+            <span class="audit-conf">reads <strong>19%</strong>
+              vs acting 91%</span>
+          </div>
+          <p class="block-body">prod target; tier-0 system; recoverable action</p>
+        </div>
+    
+
+        <div class="block trail">
+          <div class="block-label">Why the engine decided this</div>
+          <ul class="reasons"><li>independent audit dissents (prod target; tier-0 system; recoverable action); escalating</li></ul>
+        </div>
+
+        <footer class="actions"><button class="btn btn-primary tone-escalate">Take ownership</button><button class="btn btn-secondary">Deny</button></footer>
+      </article>
+    
+
+      <article class="card tone-route">
+        <header class="card-head">
+          <div class="verdict">
+            <span class="pill pill-route">Needs your approval</span>
+            
+          </div>
+          <h2 class="action-type">quarantine_host</h2>
+          <p class="stance">Routed to you as the authoritative owner of the affected stack.</p>
+        </header>
+
+        <div class="command">
+          <span class="command-label">action</span>
+          <code>quarantine_host <span class="arrow">→</span> laptop-4471</code>
+        </div>
+
+        <div class="grid">
+          <div class="field"><div class="field-label">Environment</div><div class="field-value tone-route">staging</div></div>
+          <div class="field"><div class="field-label">Blast radius</div><div class="field-value">1 system</div></div>
+          <div class="field"><div class="field-label">Reversibility</div><div class="field-value tone-auto">reversible</div></div>
+          <div class="field"><div class="field-label">Confidence</div><div class="field-value">72%</div></div>
+          <div class="field"><div class="field-label">Owner</div><div class="field-value">team-endpoint <span class="muted">· ops · 80%</span></div></div>
+          <div class="field"><div class="field-label">Write</div><div class="field-value">yes</div></div>
+        </div>
+
+        <div class="block">
+          <div class="block-label">Reasoning</div>
+          <p class="block-body">Beaconing behavior on laptop-4471, but the signal is weaker than a confident detection — confidence sits below the auto floor.</p>
+        </div>
+
+        <div class="block">
+          <div class="block-label">Rollback</div>
+          <p class="block-body mono">Release laptop-4471 from EDR network isolation.</p>
+        </div>
+
+        
+        <div class="block audit">
+          <div class="block-label">Independent audit · second opinion</div>
+          <div class="audit-row">
+            <span class="pill pill-auto">Concurs</span>
+            <span class="audit-conf">reads <strong>92%</strong>
+              vs acting 72%</span>
+          </div>
+          <p class="block-body">no risk factors flagged</p>
+        </div>
+    
+
+        <div class="block trail">
+          <div class="block-label">Why the engine decided this</div>
+          <ul class="reasons"><li>confidence 0.72 below auto floor 0.85; confidence only tightens</li><li>routing to owner &#x27;team-endpoint&#x27; (confidence 0.80)</li></ul>
+        </div>
+
+        <footer class="actions"><button class="btn btn-primary tone-route">Approve &amp; execute</button><button class="btn btn-secondary">Deny</button></footer>
+      </article>
+    
+
+      <article class="card tone-escalate">
+        <header class="card-head">
+          <div class="verdict">
+            <span class="pill pill-escalate">Escalated</span>
+            
+          </div>
+          <h2 class="action-type">delete_volume</h2>
+          <p class="stance">No confident owner or a fail-safe tripped — broadened to a human decision.</p>
+        </header>
+
+        <div class="command">
+          <span class="command-label">action</span>
+          <code>delete_volume <span class="arrow">→</span> analytics-db</code>
+        </div>
+
+        <div class="grid">
+          <div class="field"><div class="field-label">Environment</div><div class="field-value tone-auto">dev</div></div>
+          <div class="field"><div class="field-label">Blast radius</div><div class="field-value">1 system</div></div>
+          <div class="field"><div class="field-label">Reversibility</div><div class="field-value tone-escalate">irreversible</div></div>
+          <div class="field"><div class="field-label">Confidence</div><div class="field-value">99%</div></div>
+          <div class="field"><div class="field-label">Owner</div><div class="field-value"><span class="muted">unresolved</span></div></div>
+          <div class="field"><div class="field-label">Write</div><div class="field-value">yes</div></div>
+        </div>
+
+        <div class="block">
+          <div class="block-label">Reasoning</div>
+          <p class="block-body">A scratch volume flagged as holding exposed data. Deletion is irreversible and no owner is on file for this system.</p>
+        </div>
+
+        <div class="block">
+          <div class="block-label">Rollback</div>
+          <p class="block-body mono"><span class="tone-escalate">no rollback plan — autonomy withheld</span></p>
+        </div>
+
+        
+        <div class="block audit">
+          <div class="block-label">Independent audit · second opinion</div>
+          <div class="audit-row">
+            <span class="pill pill-escalate">Dissent</span>
+            <span class="audit-conf">reads <strong>9%</strong>
+              vs acting 99%</span>
+          </div>
+          <p class="block-body">irreversible action; no rollback plan</p>
+        </div>
+    
+
+        <div class="block trail">
+          <div class="block-label">Why the engine decided this</div>
+          <ul class="reasons"><li>independent audit dissents (irreversible action; no rollback plan); escalating</li></ul>
+        </div>
+
+        <footer class="actions"><button class="btn btn-primary tone-escalate">Take ownership</button><button class="btn btn-secondary">Deny</button></footer>
+      </article>
+    
+    </div>
+    <p class="foot">Rendered from live <code>PolicyEngine</code> output · the gate is
+    computed deterministically, the card only displays it.</p>
+  </main>
+</body>
+</html>

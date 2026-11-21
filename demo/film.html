@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Assent — film</title>
+<style>
+  /* ============================================================
+     ASSENT — 38.5s motion piece.
+     Every animation carries an ABSOLUTE animation-delay, so the whole
+     composition is a pure function of time and can be seeked frame-exactly
+     via the Web Animations API.
+     ============================================================ */
+
+  :root{
+    --bg:#06070c;
+    --ink:#f2f4fa;
+    --dim:#8a93ad;
+    --faint:#4a5268;
+    --accent:#6d7cff;
+    --accent-2:#9aa4ff;
+    --auto:#34d399;
+    --route:#fbbf24;
+    --esc:#f87171;
+    --sans:"Inter Display","Inter",system-ui,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,monospace;
+    --ease:cubic-bezier(.16,1,.3,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#000;overflow:hidden}
+  body{width:1920px;height:1080px}
+
+  .stage{
+    position:relative;width:1920px;height:1080px;overflow:hidden;
+    background:var(--bg);color:var(--ink);font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- atmosphere ---------- */
+  .grid{
+    position:absolute;inset:-20%;
+    background-image:
+      linear-gradient(to right,rgba(120,134,190,.07) 1px,transparent 1px),
+      linear-gradient(to bottom,rgba(120,134,190,.07) 1px,transparent 1px);
+    background-size:64px 64px;
+    animation:drift 40s linear infinite;
+  }
+  @keyframes drift{from{transform:translate3d(0,0,0)}to{transform:translate3d(-64px,-64px,0)}}
+
+  .glow{position:absolute;border-radius:50%;filter:blur(120px);pointer-events:none}
+  .vignette{
+    position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(120% 90% at 50% 45%,transparent 40%,rgba(0,0,0,.75) 100%);
+  }
+  .grain{
+    position:absolute;inset:0;pointer-events:none;opacity:.035;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+  }
+  .scanline{
+    position:absolute;left:0;right:0;height:2px;top:0;
+    background:linear-gradient(90deg,transparent,rgba(109,124,255,.55),transparent);
+    filter:blur(1px);
+  }
+
+  /* ---------- scene scaffolding ---------- */
+  .scene{position:absolute;inset:0;opacity:0}
+  .beat{position:absolute;inset:0;opacity:0}
+  @keyframes sceneShow{0%{opacity:0}5%{opacity:1}93%{opacity:1}100%{opacity:0}}
+  @keyframes beatShow{0%{opacity:0}9%{opacity:1}86%{opacity:1}100%{opacity:0}}
+  .a{animation-fill-mode:both;animation-timing-function:var(--ease)}
+
+  @keyframes rise{from{opacity:0;transform:translateY(34px)}to{opacity:1;transform:none}}
+  @keyframes riseSm{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes fadeOut{from{opacity:1}to{opacity:0}}
+  @keyframes wipeIn{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+  @keyframes growX{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  @keyframes growY{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+  @keyframes pop{0%{opacity:0;transform:scale(.82)}60%{opacity:1;transform:scale(1.03)}100%{opacity:1;transform:scale(1)}}
+  @keyframes sweep{from{transform:translateY(-40px)}to{transform:translateY(1120px)}}
+  @keyframes pulseDot{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:1;transform:scale(1.55)}}
+  @keyframes throb{0%,100%{opacity:.5}50%{opacity:1}}
+  @keyframes ringOut{0%{opacity:.85;transform:scale(.4)}100%{opacity:0;transform:scale(2.6)}}
+  @keyframes slideRail{from{left:186px}to{left:186px}}
+  @keyframes drawLine{from{stroke-dashoffset:var(--len)}to{stroke-dashoffset:0}}
+
+  /* ---------- typography ---------- */
+  .kicker{
+    font-family:var(--mono);font-size:19px;letter-spacing:.34em;text-transform:uppercase;
+    color:var(--accent-2);font-weight:500;
+  }
+  h1{
+    font-family:var(--sans);font-weight:800;letter-spacing:-.042em;line-height:.98;
+    font-size:118px;
+  }
+  h2{font-family:var(--sans);font-weight:750;letter-spacing:-.035em;font-size:80px;line-height:1.02}
+  .sub{font-size:30px;color:var(--dim);font-weight:450;letter-spacing:-.012em}
+  .mono{font-family:var(--mono)}
+  .accent{color:var(--accent-2)}
+  .center{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);
+          display:flex;flex-direction:column;align-items:center;gap:34px;text-align:center}
+  .word{display:inline-block}
+
+  /* ---------- S1 lattice ---------- */
+  .node{position:absolute;width:9px;height:9px;border-radius:50%;background:var(--faint)}
+  .node.hot{background:var(--esc);box-shadow:0 0 22px 5px rgba(248,113,113,.5)}
+  .ring{position:absolute;width:120px;height:120px;border-radius:50%;
+        border:2px solid rgba(248,113,113,.65);margin:-55px 0 0 -55px}
+
+  /* ---------- S2 proposal card ---------- */
+  .card{
+    position:absolute;width:760px;border-radius:20px;padding:34px 38px;
+    background:linear-gradient(180deg,rgba(24,27,38,.96),rgba(15,17,25,.96));
+    border:1px solid rgba(140,152,196,.18);
+    box-shadow:0 40px 120px rgba(0,0,0,.6);
+  }
+  .card .row{display:flex;justify-content:space-between;align-items:center}
+  .card .cmd{font-family:var(--mono);font-size:30px;letter-spacing:-.01em;margin:18px 0 26px}
+  .tag{font-family:var(--mono);font-size:15px;letter-spacing:.16em;text-transform:uppercase;
+       padding:7px 14px;border-radius:999px}
+  .tag.wait{color:var(--route);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.32)}
+  .tag.auto{color:var(--auto);background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.34)}
+  .tag.esc{color:var(--esc);background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.34)}
+  .bar{height:5px;border-radius:99px;background:rgba(140,152,196,.16);overflow:hidden}
+  .bar > i{display:block;height:100%;border-radius:99px;background:var(--route);transform-origin:left}
+  .meta{font-family:var(--mono);font-size:17px;color:var(--dim);letter-spacing:.02em}
+
+  /* ---------- S5 meters ---------- */
+  .meters{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+          display:grid;grid-template-columns:repeat(4,268px);gap:34px}
+  .meter .lab{font-family:var(--mono);font-size:15px;letter-spacing:.15em;text-transform:uppercase;
+              color:var(--faint);margin-bottom:14px}
+  .meter .val{font-size:40px;font-weight:700;letter-spacing:-.028em;margin-bottom:18px}
+  .meter .track{height:4px;background:rgba(140,152,196,.16);border-radius:99px;overflow:hidden}
+  .meter .track > i{display:block;height:100%;border-radius:99px;transform-origin:left}
+  .stamp{font-family:var(--mono);font-size:14px;letter-spacing:.13em;text-transform:uppercase;
+         color:var(--faint);margin-top:12px}
+
+  /* ---------- S5 gate rail ---------- */
+  .rail{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:1120px}
+  .rail .line{height:2px;background:linear-gradient(90deg,rgba(52,211,153,.5),rgba(251,191,36,.5),rgba(248,113,113,.5))}
+  .stop{position:absolute;top:-9px;width:20px;height:20px;border-radius:50%;
+        background:var(--bg);border:2px solid rgba(140,152,196,.5)}
+  .stopLab{position:absolute;top:34px;font-family:var(--mono);font-size:17px;letter-spacing:.14em;
+           text-transform:uppercase;transform:translateX(-50%)}
+  .token{position:absolute;top:-16px;width:34px;height:34px;border-radius:50%;
+         background:var(--auto);box-shadow:0 0 40px 10px rgba(52,211,153,.45);margin-left:-17px}
+
+  /* ---------- S6 split proof ---------- */
+  .half{position:absolute;top:0;bottom:0;width:960px;display:flex;flex-direction:column;
+        justify-content:center;padding:0 108px;gap:26px}
+  .half.l{left:0}.half.r{left:960px}
+  .divider{position:absolute;left:960px;top:180px;bottom:180px;width:1px;
+           background:linear-gradient(180deg,transparent,rgba(140,152,196,.28),transparent)}
+  .caseCmd{font-family:var(--mono);font-size:31px;letter-spacing:-.012em;line-height:1.35}
+  .facts{display:flex;gap:10px;flex-wrap:wrap}
+  .fact{font-family:var(--mono);font-size:15px;letter-spacing:.06em;color:var(--dim);
+        padding:7px 13px;border-radius:8px;border:1px solid rgba(140,152,196,.2);
+        background:rgba(140,152,196,.05)}
+  .verdict{font-size:64px;font-weight:800;letter-spacing:-.038em}
+  .outcome{font-size:26px;color:var(--dim);font-weight:450;letter-spacing:-.01em}
+
+  /* ---------- S7 close ---------- */
+  .mark{display:flex;align-items:center;gap:26px}
+  .markdot{width:30px;height:30px;border-radius:50%;background:var(--accent);
+           box-shadow:0 0 0 12px rgba(109,124,255,.14),0 0 60px 14px rgba(109,124,255,.4)}
+  .marktext{font-size:104px;font-weight:800;letter-spacing:-.05em}
+  .chain{display:flex;align-items:center;gap:0}
+  .link{width:52px;height:52px;border-radius:13px;border:1.5px solid rgba(140,152,196,.34)}
+  .linkbar{width:26px;height:1.5px;background:rgba(140,152,196,.34)}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+
+  <!-- atmosphere -->
+  <div class="grid"></div>
+  <div class="glow" style="width:900px;height:900px;left:-200px;top:-260px;background:rgba(109,124,255,.16)"></div>
+  <div class="glow" style="width:820px;height:820px;right:-240px;bottom:-300px;background:rgba(109,124,255,.10)"></div>
+
+  <!-- ============ S1 · 0.0–5.0 · the capability ============ -->
+  <div class="scene a" style="animation-name:sceneShow;animation-duration:5s;animation-delay:0s;animation-timing-function:linear">
+    <div class="scanline a" style="animation-name:sweep;animation-duration:2.6s;animation-delay:.2s"></div>
+    <div id="lattice"></div>
+    <div class="center" style="top:52%">
+      <div class="kicker a" style="animation-name:fadeIn;animation-duration:.8s;animation-delay:.35s">Detection · solved</div>
+      <h1 id="s1h"></h1>
+    </div>
+  </div>
+
+  <!-- ============ S2 · 5.0–10.0 · the wall ============ -->
+  <div class="scene a" style="animation-name:sceneShow;animation-duration:5s;animation-delay:5s;animation-timing-function:linear">
+    <div class="center" style="top:26%;">
+      <h2 class="a" style="animation-name:rise;animation-duration:1.1s;animation-delay:5.15s">It still can't touch it.</h2>
+    </div>
+    <div class="card a" style="left:580px;top:520px;animation-name:pop;animation-duration:.9s;animation-delay:5.9s">
+      <div class="row">
+        <span class="meta">proposed action</span>
+        <span class="tag wait a" style="animation-name:throb;animation-duration:1.6s;animation-delay:6.6s;animation-iteration-count:infinite;animation-timing-function:ease-in-out">awaiting approval</span>
+      </div>
+      <div class="cmd">quarantine_host <span style="color:var(--faint)">→</span> laptop-4471</div>
+      <div class="bar"><i class="a" style="animation-name:growX;animation-duration:1.4s;animation-delay:6.5s;width:22%"></i></div>
+      <div class="row" style="margin-top:22px">
+        <span class="meta">blast radius 1 · reversible</span>
+        <span class="meta a" style="color:var(--route);animation-name:fadeIn;animation-duration:.6s;animation-delay:7.6s">waiting 4m 12s</span>
+      </div>
+    </div>
+    <div class="center" style="top:82%">
+      <div class="sub a" style="animation-name:riseSm;animation-duration:.9s;animation-delay:8.2s">A reversible fix. One machine. Still queued behind a human.</div>
+    </div>
+  </div>
+
+  <!-- ============ S3 · 10.0–14.5 · the reason ============ -->
+  <div class="scene a" style="animation-name:sceneShow;animation-duration:4.5s;animation-delay:10s;animation-timing-function:linear">
+    <div class="center">
+      <div class="kicker a" style="animation-name:fadeIn;animation-duration:.7s;animation-delay:10.25s">The real blocker</div>
+      <h1 id="s3h" style="font-size:96px;max-width:1500px"></h1>
+    </div>
+  </div>
+
+  <!-- ============ S4 · 14.5–19.0 · identity ============ -->
+  <div class="scene a" style="animation-name:sceneShow;animation-duration:4.5s;animation-delay:14.5s;animation-timing-function:linear">
+    <div class="center" style="gap:44px">
+      <div class="mark">
+        <div style="position:relative">
+          <div class="markdot a" style="animation-name:pop;animation-duration:.9s;animation-delay:14.7s"></div>
+          <div class="ring a" style="width:30px;height:30px;margin:0;left:0;top:0;border-color:rgba(109,124,255,.7);animation-name:ringOut;animation-duration:1.8s;animation-delay:15s"></div>
+        </div>
+        <div class="marktext" id="s4mark"></div>
+      </div>
+      <div class="sub a" style="font-size:34px;color:var(--ink);animation-name:riseSm;animation-duration:1s;animation-delay:16.1s">
+        Nothing acts without assent.</div>
+      <div class="sub a" style="animation-name:riseSm;animation-duration:1s;animation-delay:16.6s">
+        Earned automatically — or granted by the person who owns it.</div>
+    </div>
+  </div>
+
+  <!-- ============ S5 · 19.0–27.0 · the mechanism ============ -->
+  <div class="scene a" style="animation-name:sceneShow;animation-duration:8s;animation-delay:19s;animation-timing-function:linear">
+    <!-- ---- beat A · 19.2–23.0 · the four axes ---- -->
+    <div class="beat a" style="animation-name:beatShow;animation-duration:3.8s;animation-delay:19.2s;animation-timing-function:linear">
+    <div class="center" style="top:24%">
+      <div class="kicker a" style="animation-name:fadeIn;animation-duration:.7s;animation-delay:19.3s">Every action, measured</div>
+    </div>
+
+    <!-- meters -->
+    <div class="meters" style="top:50%">
+      <div class="meter a" style="animation-name:rise;animation-duration:.9s;animation-delay:19.5s">
+        <div class="lab">Blast radius</div><div class="val mono">1 system</div>
+        <div class="track"><i class="a" style="background:var(--auto);width:12%;animation-name:growX;animation-duration:1s;animation-delay:19.9s"></i></div>
+        <div class="stamp">measured</div>
+      </div>
+      <div class="meter a" style="animation-name:rise;animation-duration:.9s;animation-delay:19.68s">
+        <div class="lab">Reversibility</div><div class="val mono" style="color:var(--auto)">reversible</div>
+        <div class="track"><i class="a" style="background:var(--auto);width:100%;animation-name:growX;animation-duration:1s;animation-delay:20.08s"></i></div>
+        <div class="stamp">measured</div>
+      </div>
+      <div class="meter a" style="animation-name:rise;animation-duration:.9s;animation-delay:19.86s">
+        <div class="lab">Environment</div><div class="val mono">staging</div>
+        <div class="track"><i class="a" style="background:var(--route);width:55%;animation-name:growX;animation-duration:1s;animation-delay:20.26s"></i></div>
+        <div class="stamp">measured</div>
+      </div>
+      <div class="meter a" style="animation-name:rise;animation-duration:.9s;animation-delay:20.04s">
+        <div class="lab">Confidence</div><div class="val mono">0.94</div>
+        <div class="track"><i class="a" style="background:var(--accent);width:94%;animation-name:growX;animation-duration:1s;animation-delay:20.44s"></i></div>
+        <div class="stamp" style="color:var(--accent-2)">can only tighten</div>
+      </div>
+    </div>
+
+    <div class="center" style="top:70%">
+      <div class="sub a" style="animation-name:riseSm;animation-duration:.9s;animation-delay:21.2s">
+        Three are facts an attacker can't fake. One is an opinion — and it can only ever say <span style="color:var(--ink)">stop</span>.</div>
+    </div>
+    </div><!-- /beat A -->
+
+    <!-- ---- beat B · 23.1–27.0 · the gate ---- -->
+    <div class="beat a" style="animation-name:beatShow;animation-duration:3.9s;animation-delay:23.1s;animation-timing-function:linear">
+    <div class="rail a" style="top:44%;animation-name:fadeIn;animation-duration:.7s;animation-delay:23.2s">
+      <div class="line a" style="animation-name:growX;animation-duration:1s;animation-delay:23.3s;transform-origin:left"></div>
+      <div class="stop" style="left:180px"></div><div class="stopLab" style="left:190px;color:var(--auto)">auto</div>
+      <div class="stop" style="left:550px"></div><div class="stopLab" style="left:560px;color:var(--route)">route to owner</div>
+      <div class="stop" style="left:920px"></div><div class="stopLab" style="left:930px;color:var(--esc)">escalate</div>
+      <div class="token a" style="left:190px;animation-name:pop;animation-duration:.8s;animation-delay:24.1s"></div>
+      <div class="ring a" style="left:190px;top:-9px;width:34px;height:34px;margin:0;border-color:rgba(52,211,153,.8);animation-name:ringOut;animation-duration:1.6s;animation-delay:24.4s"></div>
+    </div>
+    <div class="center" style="top:68%">
+      <h2 class="a" style="font-size:64px;animation-name:rise;animation-duration:1s;animation-delay:24.8s">
+        Autonomy is earned by <span class="accent">low risk</span>.</h2>
+      <div class="sub a" style="animation-name:riseSm;animation-duration:.9s;animation-delay:25.4s">Never by high confidence.</div>
+    </div>
+    </div><!-- /beat B -->
+  </div>
+
+  <!-- ============ S6 · 27.0–34.0 · proof ============ -->
+  <div class="scene a" style="animation-name:sceneShow;animation-duration:7s;animation-delay:27s;animation-timing-function:linear">
+    <div class="divider a" style="animation-name:growY;animation-duration:1s;animation-delay:27.4s"></div>
+
+    <div class="half l">
+      <div class="kicker a" style="animation-name:fadeIn;animation-duration:.6s;animation-delay:27.3s">Case 01</div>
+      <div class="caseCmd a" style="animation-name:riseSm;animation-duration:.8s;animation-delay:27.5s">
+        block_domain <span style="color:var(--faint)">→</span><br>staging-edge-fw</div>
+      <div class="facts">
+        <span class="fact a" style="animation-name:riseSm;animation-duration:.6s;animation-delay:27.9s">staging</span>
+        <span class="fact a" style="animation-name:riseSm;animation-duration:.6s;animation-delay:28.0s">1 system</span>
+        <span class="fact a" style="animation-name:riseSm;animation-duration:.6s;animation-delay:28.1s">reversible</span>
+        <span class="fact a" style="animation-name:riseSm;animation-duration:.6s;animation-delay:28.2s">rollback ready</span>
+      </div>
+      <div class="verdict a" style="color:var(--auto);animation-name:rise;animation-duration:.9s;animation-delay:28.7s">Acted.</div>
+      <div class="outcome a" style="animation-name:riseSm;animation-duration:.8s;animation-delay:29.0s">
+        No human. Fully logged. Reversible in one click.</div>
+    </div>
+
+    <div class="half r">
+      <div class="kicker a" style="animation-name:fadeIn;animation-duration:.6s;animation-delay:30.0s">Case 02</div>
+      <div class="caseCmd a" style="animation-name:riseSm;animation-duration:.8s;animation-delay:30.2s">
+        rotate_credential <span style="color:var(--faint)">→</span><br>payments-api</div>
+      <div class="facts">
+        <span class="fact a" style="color:var(--esc);border-color:rgba(248,113,113,.34);animation-name:riseSm;animation-duration:.6s;animation-delay:30.6s">production</span>
+        <span class="fact a" style="color:var(--esc);border-color:rgba(248,113,113,.34);animation-name:riseSm;animation-duration:.6s;animation-delay:30.7s">tier-0</span>
+        <span class="fact a" style="animation-name:riseSm;animation-duration:.6s;animation-delay:30.8s">5 systems</span>
+        <span class="fact a" style="animation-name:riseSm;animation-duration:.6s;animation-delay:30.9s">audit dissents</span>
+      </div>
+      <div class="verdict a" style="color:var(--esc);animation-name:rise;animation-duration:.9s;animation-delay:31.4s">Stopped.</div>
+      <div class="outcome a" style="animation-name:riseSm;animation-duration:.8s;animation-delay:31.7s">
+        Held, and routed to the team that owns it.</div>
+    </div>
+
+    <div class="center" style="top:88%">
+      <div class="sub a" style="animation-name:fadeIn;animation-duration:.8s;animation-delay:32.4s">
+        Same system. Same second. Opposite answers.</div>
+    </div>
+  </div>
+
+  <!-- ============ S7 · 34.0–38.5 · close ============ -->
+  <div class="scene a" style="animation-name:sceneShow;animation-duration:4.5s;animation-delay:34s;animation-timing-function:linear">
+    <div class="center" style="gap:40px">
+      <div class="chain a" style="opacity:.5;animation-name:fadeIn;animation-duration:1.2s;animation-delay:34.2s">
+        <div class="link"></div><div class="linkbar"></div>
+        <div class="link"></div><div class="linkbar"></div>
+        <div class="link"></div><div class="linkbar"></div>
+        <div class="link"></div>
+      </div>
+      <div class="mark a" style="animation-name:rise;animation-duration:1.1s;animation-delay:34.6s">
+        <div class="markdot"></div>
+        <div class="marktext">Assent</div>
+      </div>
+      <div class="sub a" style="font-size:32px;color:var(--ink);animation-name:riseSm;animation-duration:1s;animation-delay:35.3s">
+        The trust layer for autonomous defense.</div>
+      <div class="kicker a" style="margin-top:8px;color:var(--faint);animation-name:fadeIn;animation-duration:1s;animation-delay:35.9s">
+        Let the agent fix it — safely</div>
+    </div>
+  </div>
+
+  <div class="vignette"></div>
+  <div class="grain"></div>
+</div>
+
+<script>
+/* ---------- build repetitive DOM before any seeking ---------- */
+(function(){
+  // headline word reveals
+  function words(el, text, start, step, dur){
+    el.innerHTML = text.split(' ').map(w=>`<span class="word">${w}</span>`).join(' ');
+    [...el.querySelectorAll('.word')].forEach((s,i)=>{
+      s.style.animation = `rise ${dur}s cubic-bezier(.16,1,.3,1) ${(start+i*step).toFixed(3)}s both`;
+    });
+  }
+  words(document.getElementById('s1h'), 'Your AI already finds the threat.', 0.75, 0.085, 1.0);
+  words(document.getElementById('s3h'), 'Nothing could prove it was safe to act.', 10.5, 0.075, 0.95);
+
+  // wordmark letters
+  const mark = document.getElementById('s4mark');
+  mark.innerHTML = 'Assent'.split('').map(c=>`<span class="word">${c}</span>`).join('');
+  [...mark.querySelectorAll('.word')].forEach((s,i)=>{
+    s.style.animation = `rise .9s cubic-bezier(.16,1,.3,1) ${(15.15+i*0.06).toFixed(3)}s both`;
+  });
+
+  // S1 network lattice
+  const lat = document.getElementById('lattice');
+  const pts = [];
+  const cols = 13, rows = 7;
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+    const jx = (Math.sin(r*3.1+c*1.7)*20), jy = (Math.cos(c*2.3+r*1.1)*18);
+    pts.push({x: 190 + c*128 + jx, y: 210 + r*112 + jy, r, c});
+  }
+  const hot = pts.find(p=>p.r===3 && p.c===8);
+  pts.forEach((p,i)=>{
+    const d = document.createElement('div');
+    const isHot = p===hot;
+    d.className = 'node a' + (isHot?' hot':'');
+    d.style.left = p.x+'px'; d.style.top = p.y+'px';
+    const dist = Math.hypot(p.x-hot.x, p.y-hot.y)/1400;
+    d.style.animation = isHot
+      ? `pulseDot 1.5s ease-in-out ${(1.9).toFixed(2)}s infinite both`
+      : `fadeIn .8s ease ${(0.25 + dist*2.4).toFixed(3)}s both`;
+    if(!isHot) d.style.opacity = 0;
+    lat.appendChild(d);
+  });
+  const ring = document.createElement('div');
+  ring.className = 'ring a';
+  ring.style.left = hot.x+'px'; ring.style.top = hot.y+'px';
+  ring.style.animation = 'ringOut 2.2s cubic-bezier(.16,1,.3,1) 2.1s infinite both';
+  lat.appendChild(ring);
+
+  // connective lines around the hot node
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('width','1920'); svg.setAttribute('height','1080');
+  svg.style.cssText='position:absolute;inset:0;pointer-events:none';
+  pts.filter(p=>Math.abs(p.r-hot.r)<=1 && Math.abs(p.c-hot.c)<=1 && p!==hot).forEach((p,i)=>{
+    const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1',hot.x+4); l.setAttribute('y1',hot.y+4);
+    l.setAttribute('x2',p.x+4);   l.setAttribute('y2',p.y+4);
+    l.setAttribute('stroke','rgba(248,113,113,.35)'); l.setAttribute('stroke-width','1.2');
+    const len = Math.hypot(p.x-hot.x,p.y-hot.y);
+    l.style.setProperty('--len', len);
+    l.setAttribute('stroke-dasharray', len);
+    l.style.animation = `drawLine .9s cubic-bezier(.16,1,.3,1) ${(2.15+i*0.06).toFixed(3)}s both`;
+    svg.appendChild(l);
+  });
+  lat.appendChild(svg);
+
+  // ---------- freeze the timeline for deterministic seeking ----------
+  window.__seek = function(tSeconds){
+    document.getAnimations().forEach(a=>{
+      try{ a.pause(); a.currentTime = tSeconds*1000; }catch(e){}
+    });
+  };
+  window.__ready = true;
+})();
+</script>
+</body></html>
