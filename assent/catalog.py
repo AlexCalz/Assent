@@ -85,6 +85,40 @@ DEFAULT_CATALOG = ActionCatalog(
             "revoke_iam_role", is_write=True, reversibility=Reversibility.RECOVERABLE,
             description="Remove an IAM role binding. Undo = re-grant, may break access.",
         ),
+        # --- ARTEX / agentic-attack containment: reversible ---
+        "block_webhook_url": ActionClass(
+            "block_webhook_url", is_write=True, reversibility=Reversibility.REVERSIBLE,
+            description="Block an exfiltration destination URL at the egress proxy. Undo = unblock.",
+        ),
+        "revoke_cloud_session": ActionClass(
+            "revoke_cloud_session", is_write=True, reversibility=Reversibility.REVERSIBLE,
+            description="Terminate active cloud sessions for an identity. Undo = user re-authenticates.",
+        ),
+        "freeze_ad_account": ActionClass(
+            "freeze_ad_account", is_write=True, reversibility=Reversibility.REVERSIBLE,
+            description="Disable an Active Directory account. Undo = re-enable.",
+        ),
+        "isolate_cloud_workload": ActionClass(
+            "isolate_cloud_workload", is_write=True, reversibility=Reversibility.REVERSIBLE,
+            description="Network-isolate a cloud workload (EC2/VM/pod). Undo = restore connectivity.",
+        ),
+        # --- ARTEX / agentic-attack containment: recoverable ---
+        "revoke_app_consent": ActionClass(
+            "revoke_app_consent", is_write=True, reversibility=Reversibility.RECOVERABLE,
+            description="Remove OAuth/SAML app consent grant. Undo = re-grant, service disruption likely.",
+        ),
+        "restrict_cloud_role": ActionClass(
+            "restrict_cloud_role", is_write=True, reversibility=Reversibility.RECOVERABLE,
+            description="Strip elevated cloud role (Global Admin, etc). Undo = re-grant, audit required.",
+        ),
+        "rotate_app_credential": ActionClass(
+            "rotate_app_credential", is_write=True, reversibility=Reversibility.RECOVERABLE,
+            description="Rotate an application's client secret/certificate. Downstream apps must update.",
+        ),
+        "block_lateral_protocol": ActionClass(
+            "block_lateral_protocol", is_write=True, reversibility=Reversibility.RECOVERABLE,
+            description="Block a lateral-movement protocol (WinRM/PSRemoting/RDP) on a segment. Undo = re-enable.",
+        ),
         # --- irreversible writes: never auto, ever ---
         "delete_volume": ActionClass(
             "delete_volume", is_write=True, reversibility=Reversibility.IRREVERSIBLE,

@@ -22,8 +22,9 @@ from enum import Enum
 from typing import Dict, List, Optional
 
 from assent.audit import AuditAgent, AuditOpinion, RuleBasedAuditor
+from assent.campaign import CampaignCorrelator, CampaignSignal
 from assent.catalog import ActionCatalog, DEFAULT_CATALOG
-from assent.change import Change
+from assent.change import Change, RiskEnvelope
 from assent.executor import Executor, SimulatedExecutor
 from assent.graph import OwnershipGraph
 from assent.inventory import Inventory
@@ -90,6 +91,7 @@ class Assent:
         auditor: Optional[AuditAgent] = None,
         executor: Optional[Executor] = None,
         ledger: Optional[Ledger] = None,
+        correlator: Optional[CampaignCorrelator] = None,
     ) -> None:
         self.inventory = inventory if inventory is not None else Inventory()
         self.graph = graph if graph is not None else OwnershipGraph()
@@ -99,6 +101,7 @@ class Assent:
         self.auditor = auditor or RuleBasedAuditor(catalog)
         self.executor = executor if executor is not None else SimulatedExecutor()
         self.ledger = ledger if ledger is not None else Ledger()
+        self.correlator = correlator or CampaignCorrelator()
 
         self._records: Dict[str, ChangeRecord] = {}
         self._ids = itertools.count(1)
@@ -110,6 +113,8 @@ class Assent:
         now = now or _utcnow()
         change_id = f"chg-{next(self._ids):04d}"
 
+        cs = self.correlator.correlate(signal, now=now)
+
         proposal = self.proposer.propose(signal)
         self.ledger.append(
             "proposed",
@@ -119,6 +124,9 @@ class Assent:
                 "target": signal.target,
                 "proposed": proposal.proposed,
                 "refusal": proposal.refusal,
+                "campaign": cs.campaign_id,
+                "campaign_size": cs.campaign_size,
+                "velocity": cs.velocity,
             },
         )
 
@@ -138,6 +146,17 @@ class Assent:
         change = proposal.change
         owner = self.graph.resolve(signal.target, now=now)
         change = _with_owner(change, owner)
+
+        # Campaign context: a multi-target or multi-stage campaign widens the effective
+        # blast radius and raises context_caution. This can only tighten the gate.
+        if cs.campaign_size > 1:
+            campaign_radius = max(
+                change.risk_envelope.blast_radius,
+                CampaignCorrelator.campaign_blast_radius(
+                    self.correlator.get_campaign(cs.campaign_id)
+                ),
+            )
+            change = _with_campaign_context(change, campaign_radius)
 
         opinion = self.auditor.review(change)
         result = self.engine.evaluate(change, audit=opinion)
@@ -294,6 +313,30 @@ def _with_owner(change: Change, owner) -> Change:
         reasoning=change.reasoning,
         rollback=change.rollback,
         context_caution=change.context_caution,
+    )
+
+
+def _with_campaign_context(change: Change, campaign_radius: int) -> Change:
+    """Widen blast radius and raise caution when a signal is part of a campaign.
+
+    This can only tighten the gate: wider blast radius makes auto less likely,
+    and context_caution is a one-way ratchet toward human review.
+    """
+    env = change.risk_envelope
+    new_env = RiskEnvelope(
+        blast_radius=max(env.blast_radius, campaign_radius),
+        reversibility=env.reversibility,
+        environment=env.environment,
+        confidence=env.confidence,
+        hits_tier0=env.hits_tier0,
+    )
+    return Change(
+        action=change.action,
+        risk_envelope=new_env,
+        owner=change.owner,
+        reasoning=change.reasoning,
+        rollback=change.rollback,
+        context_caution=True,
     )
 
 

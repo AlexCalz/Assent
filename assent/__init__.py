@@ -27,6 +27,7 @@ from assent.inventory import Inventory, SystemRecord
 from assent.ledger import Ledger, LedgerEntry
 from assent.policy import Decision, PolicyEngine, PolicyResult
 from assent.proposer import Proposal, Proposer, RuleBasedProposer, Signal
+from assent.campaign import CampaignCorrelator, CampaignSignal
 from assent.runtime import Assent, ChangeRecord, ChangeState
 
 __all__ = [
@@ -38,6 +39,8 @@ __all__ = [
     "AuditOpinion",
     "Change",
     "ChangeRecord",
+    "CampaignCorrelator",
+    "CampaignSignal",
     "ChangeState",
     "DEFAULT_CATALOG",
     "Decision",

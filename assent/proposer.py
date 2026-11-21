@@ -93,6 +93,57 @@ DEFAULT_PLAYBOOKS: Dict[str, _Playbook] = {
         "disable_user_session", 0.90,
         "Session shows takeover indicators; revoking forces re-authentication.",
     ),
+    # --- ARTEX / agentic-attack playbooks ---
+    "agentic_recon_burst": _Playbook(
+        "freeze_ad_account", 0.87,
+        "High-velocity enumeration (100k+ AD objects, cloud metadata probes) from a single identity; "
+        "freezing the account stops the agent's reconnaissance loop.",
+    ),
+    "oauth_app_abuse": _Playbook(
+        "revoke_app_consent", 0.84,
+        "Application self-granted elevated permissions (Global Admin, etc); revoking consent "
+        "severs the trust chain before downstream pivot.",
+    ),
+    "credential_spray_burst": _Playbook(
+        "freeze_ad_account", 0.92,
+        "Credential spraying at machine speed (thousands/minute); freezing the target accounts "
+        "blocks the spray's success path.",
+    ),
+    "cloud_identity_pivot": _Playbook(
+        "revoke_cloud_session", 0.86,
+        "Cross-tenant authentication via compromised app identity; revoking active sessions "
+        "breaks the pivot chain.",
+    ),
+    "exfil_staging": _Playbook(
+        "block_webhook_url", 0.93,
+        "Exfiltration staging detected (large volume + rotating webhook destinations); "
+        "blocking the exfil URLs stops data leaving the perimeter.",
+    ),
+    "kerberos_attack": _Playbook(
+        "freeze_ad_account", 0.85,
+        "Kerberos attack chain detected (Kerberoasting/DCSync/Pass-the-Ticket); "
+        "freezing the compromised account halts ticket abuse.",
+    ),
+    "supply_chain_pivot": _Playbook(
+        "rotate_app_credential", 0.80,
+        "Trusted vendor application used for unauthorized cross-tenant access; "
+        "rotating the app credential invalidates the compromised trust link.",
+    ),
+    "lateral_movement_burst": _Playbook(
+        "quarantine_host", 0.89,
+        "Rapid lateral movement attempts (WinRM/PtH/Kerberos relay) from a single host; "
+        "isolating the host contains the spread.",
+    ),
+    "privilege_escalation": _Playbook(
+        "restrict_cloud_role", 0.83,
+        "Automated privilege escalation detected (role self-assignment, admin account creation); "
+        "stripping the elevated role closes the escalation path.",
+    ),
+    "webshell_deployment": _Playbook(
+        "quarantine_host", 0.91,
+        "Webshell written via exploited service (e.g. MySQL general_log_file abuse); "
+        "isolating the host prevents further use as a foothold.",
+    ),
 }
 
 
@@ -166,5 +217,13 @@ def _rollback_plan(action_type: str, target: str) -> Optional[str]:
         "disable_user_session": f"Restore normal session issuance for {target}.",
         "rotate_credential": f"Re-issue the previous credential version for {target}.",
         "revoke_iam_role": f"Re-grant the removed role binding on {target}.",
+        "block_webhook_url": f"Remove {target} exfil URL from the egress blocklist.",
+        "revoke_cloud_session": f"Sessions restored on next authentication for {target}.",
+        "freeze_ad_account": f"Re-enable the AD account for {target}.",
+        "isolate_cloud_workload": f"Restore network connectivity for {target}.",
+        "revoke_app_consent": f"Re-grant OAuth consent for {target} application.",
+        "restrict_cloud_role": f"Re-grant elevated role to {target} after audit review.",
+        "rotate_app_credential": f"Re-issue application credential for {target}.",
+        "block_lateral_protocol": f"Re-enable lateral protocol on {target} segment.",
     }
     return plans.get(action_type)
